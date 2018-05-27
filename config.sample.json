@@ -1,7 +1,9 @@
 {
-    "certificatePath": "",
-    "privateKeyPath": "",
-    "botToken": "",
-    "discordClientId": "",
-    "discordOAuthSecret": ""
+    "certificatePath": "server.crt",
+    "privateKeyPath": "private.pem",
+    "botToken": "foo",
+    "discordClientId": "bar",
+    "discordOAuthSecret": "baz",
+    "domain": "https://example.com",
+    "html": "mainpage.minified"
 }
