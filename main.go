@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -14,6 +16,12 @@ import (
 )
 
 const discordAPIURL string = "https://discordapp.com/api"
+
+type tokeninfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Permissions []string `json:"permissions"`
+}
 
 var config struct {
 	CertificatePath   string `json:"certificatePath"`
@@ -38,8 +46,9 @@ func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// nolint: gocyclo
 func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
-	token, err := oauthConfig.Exchange(oauth2.NoContext, r.FormValue("state"))
+	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("state"))
 	if err != nil {
 		log.Fatalf("Error getting token: %v", err)
 		if _, erro := fmt.Fprint(w, "Error getting discord authorization token."); erro != nil {
@@ -50,6 +59,13 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", discordAPIURL+"/users/@me", nil)
+	if err != nil {
+		log.Fatalf("Error creating a new request: %v", err)
+		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
 	token.SetAuthHeader(req)
 	res, err := client.Do(req)
 	if err != nil {
@@ -59,7 +75,11 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err = res.Body.Close(); err != nil {
+			log.Fatalf("Error closing response body: %v", err)
+		}
+	}()
 
 	jsonParser := json.NewDecoder(res.Body)
 	var user discordgo.User
@@ -74,10 +94,37 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: save
 
-	fmt.Fprint(w, "Success")
+	if _, erro := fmt.Fprint(w, "Success"); erro != nil {
+		log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+	}
 }
 
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
+	res, err := http.Get("https://api.guildwars2.com/v2/tokeninfo?access_token=" + r.FormValue("key"))
+	if err != nil {
+		log.Fatalf("Error quering tokeninfo: %v", err)
+		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
+	jsonParser := json.NewDecoder(res.Body)
+	var token tokeninfo
+	err = jsonParser.Decode(&token)
+	if err != nil {
+		log.Fatalf("Error parsing json to tokeninfo: %v", err)
+		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
+	if !strings.Contains(token.Name, "wvwbot") {
+		if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
+
 	// we can use the key as state here because we are not vulnerable to csrf (change my mind)
 	http.Redirect(w, r, oauthConfig.AuthCodeURL(r.FormValue("key")), http.StatusTemporaryRedirect)
 }
