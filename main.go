@@ -8,8 +8,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/bwmarrin/discordgo"
+
 	"golang.org/x/oauth2"
 )
+
+const discordAPIURL string = "https://discordapp.com/api"
 
 var config struct {
 	CertificatePath   string `json:"certificatePath"`
@@ -34,7 +38,44 @@ func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleAuthCallback(w http.ResponseWriter, r *http.Request) {}
+func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
+	token, err := oauthConfig.Exchange(oauth2.NoContext, r.FormValue("state"))
+	if err != nil {
+		log.Fatalf("Error getting token: %v", err)
+		if _, erro := fmt.Fprint(w, "Error getting discord authorization token."); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", discordAPIURL+"/users/@me", nil)
+	token.SetAuthHeader(req)
+	res, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error getting discord id: %v", err)
+		if _, erro := fmt.Fprint(w, "Error getting discord id..."); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
+	defer res.Body.Close()
+
+	jsonParser := json.NewDecoder(res.Body)
+	var user discordgo.User
+	err = jsonParser.Decode(&user)
+	if err != nil {
+		log.Fatalf("Error parsing json to discordgo.User: %v", err)
+		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		}
+		return
+	}
+
+	// TODO: save
+
+	fmt.Fprint(w, "Success")
+}
 
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	// we can use the key as state here because we are not vulnerable to csrf (change my mind)
@@ -45,6 +86,7 @@ func main() {
 	conf, err := os.Open("config.json")
 	if err != nil {
 		log.Fatalf("Error opening config file: %v", err)
+		return
 	}
 	defer func() {
 		if err = conf.Close(); err != nil {
@@ -54,14 +96,15 @@ func main() {
 	jsonParser := json.NewDecoder(conf)
 	if err = jsonParser.Decode(&config); err != nil {
 		log.Fatalf("Error parsing config file: %v", err)
+		return
 	}
 
 	oauthConfig = &oauth2.Config{
 		ClientID:     config.DiscordClientID,
 		ClientSecret: config.DiscordAuthSecret,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://discordapp.com/api/oauth2/authorize",
-			TokenURL: "https://discordapp.com/api/oauth2/token",
+			AuthURL:  discordAPIURL + "/oauth2/authorize",
+			TokenURL: discordAPIURL + "/oauth2/token",
 		},
 		RedirectURL: config.HostURL,
 		Scopes:      []string{"identify"},
@@ -70,6 +113,7 @@ func main() {
 	htmlFile, err := ioutil.ReadFile(config.HTMLPath)
 	if err != nil {
 		log.Fatalf("Error opening config file: %v", err)
+		return
 	}
 	mainpage = string(htmlFile)
 
