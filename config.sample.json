@@ -5,5 +5,6 @@
     "discordClientId": "bar",
     "discordOAuthSecret": "baz",
     "domain": "https://example.com",
-    "html": "mainpage.minified"
+    "html": "mainpage.minified",
+    "redis": "redis://user:pass@domain.com:6000"
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/gomodule/redigo/redis"
 
 	"golang.org/x/oauth2"
 )
@@ -24,17 +25,21 @@ type tokeninfo struct {
 }
 
 var config struct {
-	CertificatePath   string `json:"certificatePath"`
-	PrivateKeyPath    string `json:"privateKeyPath"`
-	BotToken          string `json:"botToken"`
-	DiscordClientID   string `json:"discordClientId"`
-	DiscordAuthSecret string `json:"discordOAuthSecret"`
-	HostURL           string `json:"domain"`
-	HTMLPath          string `json:"html"`
+	CertificatePath       string `json:"certificatePath"`
+	PrivateKeyPath        string `json:"privateKeyPath"`
+	BotToken              string `json:"botToken"`
+	DiscordClientID       string `json:"discordClientId"`
+	DiscordAuthSecret     string `json:"discordOAuthSecret"`
+	HostURL               string `json:"domain"`
+	HTMLPath              string `json:"html"`
+	RedisConnectionString string `json:"redis"`
 }
 
-var oauthConfig *oauth2.Config
-var mainpage string
+var (
+	oauthConfig *oauth2.Config
+	mainpage    string
+	redisConn   redis.Conn
+)
 
 func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
@@ -48,7 +53,8 @@ func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 
 // nolint: gocyclo
 func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
-	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("state"))
+	state := r.FormValue("state")
+	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("code"))
 	if err != nil {
 		log.Fatalf("Error getting token: %v", err)
 		if _, erro := fmt.Fprint(w, "Error getting discord authorization token."); erro != nil {
@@ -92,41 +98,62 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: save
+	if state == "deletemydata" {
+		_, err = redisConn.Do("DEL", user.ID)
+		if err != nil {
+			log.Fatalf("Error deleting key from redis: %v", err)
+			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			}
+			return
+		}
+	} else {
+		_, err = redisConn.Do("SADD", user.ID, state)
+		if err != nil {
+			log.Fatalf("Error saving key to redis: %v", err)
+			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			}
+			return
+		}
+	}
 
-	if _, erro := fmt.Fprint(w, "Success"); erro != nil {
-		log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+	if _, err = fmt.Fprint(w, "Success"); err != nil {
+		log.Fatalf("Error writing to Responsewriter: %v", err)
 	}
 }
 
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
-	res, err := http.Get("https://api.guildwars2.com/v2/tokeninfo?access_token=" + r.FormValue("key"))
-	if err != nil {
-		log.Fatalf("Error quering tokeninfo: %v", err)
-		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+	key := r.FormValue("key")
+	if key != "deletemydata" {
+		res, err := http.Get("https://api.guildwars2.com/v2/tokeninfo?access_token=" + key)
+		if err != nil {
+			log.Fatalf("Error quering tokeninfo: %v", err)
+			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			}
+			return
 		}
-		return
-	}
-	jsonParser := json.NewDecoder(res.Body)
-	var token tokeninfo
-	err = jsonParser.Decode(&token)
-	if err != nil {
-		log.Fatalf("Error parsing json to tokeninfo: %v", err)
-		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		jsonParser := json.NewDecoder(res.Body)
+		var token tokeninfo
+		err = jsonParser.Decode(&token)
+		if err != nil {
+			log.Fatalf("Error parsing json to tokeninfo: %v", err)
+			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
+				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			}
+			return
 		}
-		return
-	}
-	if !strings.Contains(token.Name, "wvwbot") {
-		if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+		if !strings.Contains(token.Name, "wvwbot") {
+			if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
+				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			}
+			return
 		}
-		return
 	}
 
 	// we can use the key as state here because we are not vulnerable to csrf (change my mind)
-	http.Redirect(w, r, oauthConfig.AuthCodeURL(r.FormValue("key")), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, oauthConfig.AuthCodeURL(key), http.StatusTemporaryRedirect)
 }
 
 func main() {
@@ -145,6 +172,18 @@ func main() {
 		log.Fatalf("Error parsing config file: %v", err)
 		return
 	}
+
+	red, err := redis.DialURL(config.RedisConnectionString)
+	if err != nil {
+		log.Fatalf("Error connecting to redis server: %v", err)
+		return
+	}
+	redisConn = red
+	defer func() {
+		if err = red.Close(); err != nil {
+			log.Fatalf("Error closing redis connection: %v", err)
+		}
+	}()
 
 	oauthConfig = &oauth2.Config{
 		ClientID:     config.DiscordClientID,
