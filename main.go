@@ -156,6 +156,10 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, oauthConfig.AuthCodeURL(key), http.StatusTemporaryRedirect)
 }
 
+func handleInvite(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "https://discordapp.com/oauth2/authorize?client_id="+config.DiscordClientID+"&scope=bot&permissions=402653184", http.StatusPermanentRedirect)
+}
+
 func main() {
 	conf, err := os.Open("config.json")
 	if err != nil {
@@ -185,6 +189,8 @@ func main() {
 		}
 	}()
 
+	go startBot()
+
 	oauthConfig = &oauth2.Config{
 		ClientID:     config.DiscordClientID,
 		ClientSecret: config.DiscordAuthSecret,
@@ -198,7 +204,7 @@ func main() {
 
 	htmlFile, err := ioutil.ReadFile(config.HTMLPath)
 	if err != nil {
-		log.Fatalf("Error opening config file: %v", err)
+		log.Fatalf("Error opening html file: %v", err)
 		return
 	}
 	mainpage = string(htmlFile)
@@ -206,6 +212,7 @@ func main() {
 	http.HandleFunc("/", handleRootRequest)
 	http.HandleFunc("/login", handleAuthRequest)
 	http.HandleFunc("/oauthcallback", handleAuthCallback)
+	http.HandleFunc("/invite", handleInvite)
 
 	go func() {
 		if err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS)); err != nil {
