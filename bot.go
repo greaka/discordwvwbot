@@ -20,7 +20,7 @@ var (
 	currentWorlds     map[int]string
 )
 
-type account struct {
+type gw2Account struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
 	World   int      `json:"world"`
@@ -244,7 +244,7 @@ func getAccountData(userID string) (name string, worlds []string) {
 			}
 		}()
 		jsonParser := json.NewDecoder(res.Body)
-		var account account
+		var account gw2Account
 		erro = jsonParser.Decode(&account)
 		if erro != nil {
 			log.Printf("Error parsing json to account data: %v\n", erro)
