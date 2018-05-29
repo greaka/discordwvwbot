@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/yasvisu/gw2api"
@@ -13,10 +14,9 @@ import (
 )
 
 var (
-	updateUserChannel   chan string
-	updateWorldsChannel chan interface{}
-	dg                  *discordgo.Session
-	currentWorlds       map[int]string
+	updateUserChannel chan string
+	dg                *discordgo.Session
+	currentWorlds     map[int]string
 )
 
 func startBot() {
@@ -60,15 +60,62 @@ func startBot() {
 		log.Printf("Error updating discord status: %v\n", statusUpdateError)
 	}
 
-	go func() {
-		for {
-			updateCurrentWorlds()
-			<-updateWorldsChannel
-		}
-	}()
+	go updater()
 
 	for {
 		updateUser(<-updateUserChannel)
+	}
+}
+
+func updater() {
+	queueUserChannel := time.Tick(24 * time.Hour)
+	for {
+		worldsChannel := resetWorldUpdateTimer()
+		select {
+		case <-queueUserChannel:
+			updateAllUsers()
+		case <-worldsChannel:
+			updateCurrentWorlds()
+			updateAllUsers()
+		}
+	}
+}
+
+func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
+	daysUntilNextFriday := int(time.Friday - time.Now().Weekday())
+	daysUntilNextSaturday := int(time.Saturday - time.Now().Weekday())
+	nextEUReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextFriday, 18, 15, 0, 0, time.UTC)
+	nextUSReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextSaturday, 2, 15, 0, 0, time.UTC)
+	var nextReset time.Time
+	if nextEUReset.Before(nextUSReset) {
+		nextReset = nextEUReset
+	} else {
+		nextReset = nextUSReset
+	}
+	worldsChannel = time.After(time.Until(nextReset))
+	return
+}
+
+func updateAllUsers() {
+	keys, err := redis.Values(redisConn.Do("KEYS", "*"))
+	if err != nil {
+		log.Printf("Error getting keys * from redis: %v\n", err)
+		return
+	}
+
+	var userIds []string
+	err = redis.ScanSlice(keys, &userIds)
+	if err != nil {
+		log.Printf("Error converting keys * to []string: %v\n", err)
+		return
+	}
+
+	iterateThroughUsers := time.Tick(500 * time.Millisecond)
+
+	for len(userIds) > 0 {
+		<-iterateThroughUsers
+		updateUserChannel <- userIds[0]
+		remove(userIds, 0)
 	}
 }
 
