@@ -178,11 +178,13 @@ func updateUser(userID string) {
 
 	for _, guild := range guildList {
 		_, erro := dg.GuildMember(guild, userID)
-		if strings.Contains(erro.Error(), string(discordgo.ErrCodeUnknownMember)) {
-			continue
-		} else if erro != nil {
-			log.Printf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
-			continue
+		if erro != nil {
+			if strings.Contains(erro.Error(), string(discordgo.ErrCodeUnknownMember)) {
+				continue
+			} else {
+				log.Printf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
+				continue
+			}
 		}
 
 		updateUserDataInGuild(userID, guild, name, worlds)
@@ -206,8 +208,15 @@ func getAccountData(userID string) (name string, worlds []string) {
 	for _, key := range keys {
 		res, erro := http.Get("https://api.guildwars2.com/v2/account?access_token=" + key)
 		if erro != nil {
-			log.Printf("Error getting account info: %v\n", erro)
-			continue
+			if strings.Contains(erro.Error(), "invalid key") {
+				_, erro = redisConn.Do("SREM", userID, key)
+				if erro != nil {
+					log.Printf("Error deleting api key from redis: %v", erro)
+				}
+			} else {
+				log.Printf("Error getting account info: %v\n", erro)
+				continue
+			}
 		}
 		defer func() {
 			if err = res.Body.Close(); err != nil {
