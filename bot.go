@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -198,7 +199,7 @@ func updateUser(userID string) {
 	for _, guild := range guildList {
 		_, erro := dg.GuildMember(guild, userID)
 		if erro != nil {
-			if strings.Contains(erro.Error(), string(discordgo.ErrCodeUnknownMember)) {
+			if strings.Contains(erro.Error(), fmt.Sprintf("%v", discordgo.ErrCodeUnknownMember)) {
 				continue
 			} else {
 				log.Printf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
