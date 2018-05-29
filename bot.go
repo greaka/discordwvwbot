@@ -127,6 +127,7 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	if err != nil {
 		log.Printf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
 	}
+	updateAllUsers()
 }
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 	_, err := redisConn.Do("SREM", "guilds", m.ID)
