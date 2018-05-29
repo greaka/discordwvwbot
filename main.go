@@ -104,7 +104,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if state == "syncnow" {
-		updateChannel <- user.ID
+		updateUserChannel <- user.ID
 	} else {
 		_, err = redisConn.Do("SADD", user.ID, state)
 		if err != nil {
@@ -134,7 +134,7 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		defer func() {
 			if err = res.Body.Close(); err != nil {
-				log.Printf("Error closing config file: %v\n", err)
+				log.Printf("Error closing response body: %v\n", err)
 			}
 		}()
 		jsonParser := json.NewDecoder(res.Body)

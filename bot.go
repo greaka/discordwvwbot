@@ -13,13 +13,14 @@ import (
 )
 
 var (
-	updateChannel chan string
-	dg            *discordgo.Session
-	currentWorlds map[int]string
+	updateUserChannel   chan string
+	updateWorldsChannel chan interface{}
+	dg                  *discordgo.Session
+	currentWorlds       map[int]string
 )
 
 func startBot() {
-	updateChannel = make(chan string)
+	updateUserChannel = make(chan string)
 
 	var err error
 	dg, err = discordgo.New("Bot " + config.BotToken)
@@ -31,7 +32,6 @@ func startBot() {
 	dg.AddHandler(guildCreate)
 	dg.AddHandler(guildDelete)
 	dg.AddHandler(guildMemberAdd)
-	dg.AddHandler(guildMemberRemove)
 
 	err = dg.Open()
 	if err != nil {
@@ -60,15 +60,33 @@ func startBot() {
 		log.Printf("Error updating discord status: %v\n", statusUpdateError)
 	}
 
+	go func() {
+		for {
+			updateCurrentWorlds()
+			<-updateWorldsChannel
+		}
+	}()
+
 	for {
-		updateUser(<-updateChannel)
+		updateUser(<-updateUserChannel)
 	}
 }
 
-func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd)       {}
-func guildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {}
-func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate)             {}
-func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete)             {}
+func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	updateUserInGuild(m.User.ID, m.GuildID)
+}
+func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
+	_, err := redisConn.Do("SADD", "guilds", m.ID)
+	if err != nil {
+		log.Printf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
+	}
+}
+func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	_, err := redisConn.Do("SREM", "guilds", m.ID)
+	if err != nil {
+		log.Printf("Error removing guild %v from redis guilds: %v\n", m.ID, err)
+	}
+}
 
 func updateUser(userID string) {
 	guilds, err := redis.Values(redisConn.Do("SMEMBERS", "guilds"))
@@ -97,7 +115,30 @@ func updateUser(userID string) {
 	}
 }
 
-func updateCurrentWorlds() {}
+func updateCurrentWorlds() {
+	res, erro := http.Get("https://api.guildwars2.com/v2/worlds?ids=all")
+	if erro != nil {
+		log.Printf("Error getting worlds info: %v\n", erro)
+		return
+	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Printf("Error closing response body: %v\n", err)
+		}
+	}()
+	jsonParser := json.NewDecoder(res.Body)
+	var worlds []gw2api.World
+	erro = jsonParser.Decode(&worlds)
+	if erro != nil {
+		log.Printf("Error parsing json to world data: %v\n", erro)
+		return
+	}
+
+	currentWorlds = make(map[int]string)
+	for _, world := range worlds {
+		currentWorlds[world.ID] = world.Name
+	}
+}
 
 func updateUserInGuild(userID string, guildID string) {
 	apikeys, err := redis.Values(redisConn.Do("SMEMBERS", userID))
@@ -114,6 +155,7 @@ func updateUserInGuild(userID string, guildID string) {
 	}
 
 	var worlds []string
+	var name string
 
 	for _, key := range keys {
 		res, erro := http.Get("https://api.guildwars2.com/v2/account?access_token=" + key)
@@ -123,7 +165,7 @@ func updateUserInGuild(userID string, guildID string) {
 		}
 		defer func() {
 			if err = res.Body.Close(); err != nil {
-				log.Printf("Error closing config file: %v\n", err)
+				log.Printf("Error closing response body: %v\n", err)
 			}
 		}()
 		jsonParser := json.NewDecoder(res.Body)
@@ -134,8 +176,11 @@ func updateUserInGuild(userID string, guildID string) {
 			continue
 		}
 
+		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
+
+	dg.GuildMemberNickname(guildID, userID, name[3:]) // nolint: errcheck
 
 	updateUserToWorldsInGuild(userID, guildID, worlds)
 }
@@ -181,7 +226,7 @@ func updateUserToWorldsInGuild(userID string, guildID string, worldNames []strin
 			newRole, err := dg.GuildRoleCreate(guildID)
 			if err != nil {
 				log.Printf("Error creating guild role: %v\n", err)
-				return
+				continue
 			}
 			newRole, erro := dg.GuildRoleEdit(guildID, newRole.ID, role, newRole.Color, newRole.Hoist, newRole.Permissions, newRole.Mentionable)
 			if erro != nil {
