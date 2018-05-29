@@ -115,8 +115,10 @@ func updateAllUsers() {
 	iterateThroughUsers := time.Tick(500 * time.Millisecond)
 
 	for len(userIds) > 0 {
-		<-iterateThroughUsers
-		updateUserChannel <- userIds[0]
+		if userIds[0] != "guilds" {
+			<-iterateThroughUsers
+			updateUserChannel <- userIds[0]
+		}
 		remove(userIds, 0)
 	}
 }
