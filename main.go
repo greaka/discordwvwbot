@@ -164,7 +164,7 @@ func handleInvite(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	f, err := os.OpenFile("botlog", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666) // nolint: gas
+	f, err := os.OpenFile("botlog", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		log.Fatalf("error opening log file: %v", err)
 	}
@@ -179,8 +179,7 @@ func main() {
 
 	conf, err := os.Open("config.json")
 	if err != nil {
-		log.Printf("Error opening config file: %v\n", err)
-		return
+		log.Fatalf("Error opening config file: %v\n", err)
 	}
 	defer func() {
 		if err = conf.Close(); err != nil {
@@ -189,14 +188,12 @@ func main() {
 	}()
 	jsonParser := json.NewDecoder(conf)
 	if err = jsonParser.Decode(&config); err != nil {
-		log.Printf("Error parsing config file: %v\n", err)
-		return
+		log.Fatalf("Error parsing config file: %v\n", err)
 	}
 
 	red, err := redis.DialURL(config.RedisConnectionString)
 	if err != nil {
-		log.Printf("Error connecting to redis server: %v\n", err)
-		return
+		log.Fatalf("Error connecting to redis server: %v\n", err)
 	}
 	redisConn = red
 	defer func() {
@@ -220,8 +217,7 @@ func main() {
 
 	htmlFile, err := ioutil.ReadFile(config.HTMLPath)
 	if err != nil {
-		log.Printf("Error opening html file: %v\n", err)
-		return
+		log.Fatalf("Error opening html file: %v\n", err)
 	}
 	mainpage = string(htmlFile)
 
@@ -238,5 +234,5 @@ func main() {
 	}()
 
 	log.Println("starting up https listener...")
-	log.Print(http.ListenAndServeTLS(":443", config.CertificatePath, config.PrivateKeyPath, nil))
+	log.Fatal(http.ListenAndServeTLS(":443", config.CertificatePath, config.PrivateKeyPath, nil))
 }
