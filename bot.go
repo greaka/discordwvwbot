@@ -68,6 +68,8 @@ func startBot() {
 }
 
 func updater() {
+	updateCurrentWorlds()
+	updateAllUsers()
 	queueUserChannel := time.Tick(24 * time.Hour)
 	for {
 		worldsChannel := resetWorldUpdateTimer()
