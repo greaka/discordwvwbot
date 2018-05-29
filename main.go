@@ -164,6 +164,19 @@ func handleInvite(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	f, err := os.OpenFile("botlog", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666) // nolint: gas
+	if err != nil {
+		log.Fatalf("error opening log file: %v", err)
+	}
+	defer func() {
+		if err = f.Close(); err != nil {
+			log.Printf("Error closing log file: %v\n", err)
+		}
+	}()
+
+	log.SetOutput(f)
+	log.Println("Starting up...")
+
 	conf, err := os.Open("config.json")
 	if err != nil {
 		log.Printf("Error opening config file: %v\n", err)
