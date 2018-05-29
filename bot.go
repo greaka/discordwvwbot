@@ -88,33 +88,6 @@ func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 	}
 }
 
-func updateUser(userID string) {
-	guilds, err := redis.Values(redisConn.Do("SMEMBERS", "guilds"))
-	if err != nil {
-		log.Printf("Error getting guilds from redis: %v\n", err)
-		return
-	}
-
-	var guildList []string
-	err = redis.ScanSlice(guilds, &guildList)
-	if err != nil {
-		log.Printf("Error converting guilds to []string: %v\n", err)
-		return
-	}
-
-	for _, guild := range guildList {
-		_, erro := dg.GuildMember(guild, userID)
-		if strings.Contains(erro.Error(), string(discordgo.ErrCodeUnknownMember)) {
-			continue
-		} else if erro != nil {
-			log.Printf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
-			continue
-		}
-
-		updateUserInGuild(userID, guild)
-	}
-}
-
 func updateCurrentWorlds() {
 	res, erro := http.Get("https://api.guildwars2.com/v2/worlds?ids=all")
 	if erro != nil {
@@ -140,7 +113,36 @@ func updateCurrentWorlds() {
 	}
 }
 
-func updateUserInGuild(userID string, guildID string) {
+func updateUser(userID string) {
+	guilds, err := redis.Values(redisConn.Do("SMEMBERS", "guilds"))
+	if err != nil {
+		log.Printf("Error getting guilds from redis: %v\n", err)
+		return
+	}
+
+	var guildList []string
+	err = redis.ScanSlice(guilds, &guildList)
+	if err != nil {
+		log.Printf("Error converting guilds to []string: %v\n", err)
+		return
+	}
+
+	name, worlds := getAccountData(userID)
+
+	for _, guild := range guildList {
+		_, erro := dg.GuildMember(guild, userID)
+		if strings.Contains(erro.Error(), string(discordgo.ErrCodeUnknownMember)) {
+			continue
+		} else if erro != nil {
+			log.Printf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
+			continue
+		}
+
+		updateUserDataInGuild(userID, guild, name, worlds)
+	}
+}
+
+func getAccountData(userID string) (name string, worlds []string) {
 	apikeys, err := redis.Values(redisConn.Do("SMEMBERS", userID))
 	if err != nil {
 		log.Printf("Error getting api keys from redis: %v\n", err)
@@ -153,9 +155,6 @@ func updateUserInGuild(userID string, guildID string) {
 		log.Printf("Error converting api keys to []string: %v\n", err)
 		return
 	}
-
-	var worlds []string
-	var name string
 
 	for _, key := range keys {
 		res, erro := http.Get("https://api.guildwars2.com/v2/account?access_token=" + key)
@@ -179,9 +178,16 @@ func updateUserInGuild(userID string, guildID string) {
 		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
+	return
+}
 
+func updateUserInGuild(userID string, guildID string) {
+	name, worlds := getAccountData(userID)
+	updateUserDataInGuild(userID, guildID, name, worlds)
+}
+
+func updateUserDataInGuild(userID, guildID, name string, worlds []string) {
 	dg.GuildMemberNickname(guildID, userID, name[3:]) // nolint: errcheck
-
 	updateUserToWorldsInGuild(userID, guildID, worlds)
 }
 
