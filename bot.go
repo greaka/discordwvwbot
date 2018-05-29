@@ -19,6 +19,20 @@ var (
 	currentWorlds     map[int]string
 )
 
+type account struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	World   int      `json:"world"`
+	Guilds  []string `json:"guilds"`
+	Access  []string `json:"access"`
+	Created string   `json:"created"`
+
+	FractalLevel int `json:"fractal_level"`
+	DailyAP      int `json:"daily_ap"`
+	MonthlyAP    int `json:"monthly_ap"`
+	WvWRank      int `json:"wvw_rank"`
+}
+
 func startBot() {
 	updateUserChannel = make(chan string)
 
@@ -229,7 +243,7 @@ func getAccountData(userID string) (name string, worlds []string) {
 			}
 		}()
 		jsonParser := json.NewDecoder(res.Body)
-		var account gw2api.Account
+		var account account
 		erro = jsonParser.Decode(&account)
 		if erro != nil {
 			log.Printf("Error parsing json to account data: %v\n", erro)
