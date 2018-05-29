@@ -29,6 +29,7 @@ var config struct {
 	HostURL               string `json:"domain"`
 	HTMLPath              string `json:"html"`
 	RedisConnectionString string `json:"redis"`
+	RedirectURL           string `json:"oauthredirect"`
 }
 
 var (
@@ -211,7 +212,7 @@ func main() {
 			AuthURL:  discordAPIURL + "/oauth2/authorize",
 			TokenURL: discordAPIURL + "/oauth2/token",
 		},
-		RedirectURL: config.HostURL,
+		RedirectURL: config.HostURL + config.RedirectURL,
 		Scopes:      []string{"identify"},
 	}
 
@@ -223,7 +224,7 @@ func main() {
 
 	http.HandleFunc("/", handleRootRequest)
 	http.HandleFunc("/login", handleAuthRequest)
-	http.HandleFunc("/oauthcallback", handleAuthCallback)
+	http.HandleFunc(config.RedirectURL, handleAuthCallback)
 	http.HandleFunc("/invite", handleInvite)
 
 	go func() {

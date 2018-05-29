@@ -6,5 +6,6 @@
     "discordOAuthSecret": "baz",
     "domain": "https://example.com",
     "html": "mainpage.minified",
-    "redis": "redis://user:pass@domain.com:6000"
+    "redis": "redis://user:pass@domain.com:6000",
+    "oauthredirect": "/oauthcallback"
 }

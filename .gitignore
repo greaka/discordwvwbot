@@ -13,3 +13,10 @@
 
 # config file with secrets
 config.json
+
+# other bot files
+botlog
+
+# vscode
+.vscode/
+debug
