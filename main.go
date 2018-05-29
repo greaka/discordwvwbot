@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/yasvisu/gw2api"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/gomodule/redigo/redis"
 
@@ -17,12 +19,6 @@ import (
 )
 
 const discordAPIURL string = "https://discordapp.com/api"
-
-type tokeninfo struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Permissions []string `json:"permissions"`
-}
 
 var config struct {
 	CertificatePath       string `json:"certificatePath"`
@@ -47,7 +43,7 @@ func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 
 func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 	if _, err := fmt.Fprintf(w, mainpage); err != nil {
-		log.Fatalf("Error handling root request: %v", err)
+		log.Printf("Error handling root request: %v\n", err)
 	}
 }
 
@@ -56,9 +52,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state := r.FormValue("state")
 	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("code"))
 	if err != nil {
-		log.Fatalf("Error getting token: %v", err)
+		log.Printf("Error getting token: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Error getting discord authorization token."); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
@@ -66,24 +62,24 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", discordAPIURL+"/users/@me", nil)
 	if err != nil {
-		log.Fatalf("Error creating a new request: %v", err)
+		log.Printf("Error creating a new request: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
 	token.SetAuthHeader(req)
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Error getting discord id: %v", err)
+		log.Printf("Error getting discord id: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Error getting discord id..."); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
 	defer func() {
 		if err = res.Body.Close(); err != nil {
-			log.Fatalf("Error closing response body: %v", err)
+			log.Printf("Error closing response body: %v\n", err)
 		}
 	}()
 
@@ -91,9 +87,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	var user discordgo.User
 	err = jsonParser.Decode(&user)
 	if err != nil {
-		log.Fatalf("Error parsing json to discordgo.User: %v", err)
+		log.Printf("Error parsing json to discordgo.User: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
@@ -101,52 +97,59 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if state == "deletemydata" {
 		_, err = redisConn.Do("DEL", user.ID)
 		if err != nil {
-			log.Fatalf("Error deleting key from redis: %v", err)
+			log.Printf("Error deleting key from redis: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
+	} else if state == "syncnow" {
+		updateChannel <- user.ID
 	} else {
 		_, err = redisConn.Do("SADD", user.ID, state)
 		if err != nil {
-			log.Fatalf("Error saving key to redis: %v", err)
+			log.Printf("Error saving key to redis: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
 	}
 
 	if _, err = fmt.Fprint(w, "Success"); err != nil {
-		log.Fatalf("Error writing to Responsewriter: %v", err)
+		log.Printf("Error writing to Responsewriter: %v\n", err)
 	}
 }
 
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	key := r.FormValue("key")
-	if key != "deletemydata" {
+	if key != "deletemydata" && key != "syncnow" {
 		res, err := http.Get("https://api.guildwars2.com/v2/tokeninfo?access_token=" + key)
 		if err != nil {
-			log.Fatalf("Error quering tokeninfo: %v", err)
+			log.Printf("Error quering tokeninfo: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
+		defer func() {
+			if err = res.Body.Close(); err != nil {
+				log.Printf("Error closing config file: %v\n", err)
+			}
+		}()
 		jsonParser := json.NewDecoder(res.Body)
-		var token tokeninfo
+		var token gw2api.TokenInfo
 		err = jsonParser.Decode(&token)
 		if err != nil {
-			log.Fatalf("Error parsing json to tokeninfo: %v", err)
+			log.Printf("Error parsing json to tokeninfo: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
 		if !strings.Contains(token.Name, "wvwbot") {
 			if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
-				log.Fatalf("Error writing to Responsewriter: %v and %v", err, erro)
+				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
@@ -163,29 +166,29 @@ func handleInvite(w http.ResponseWriter, r *http.Request) {
 func main() {
 	conf, err := os.Open("config.json")
 	if err != nil {
-		log.Fatalf("Error opening config file: %v", err)
+		log.Printf("Error opening config file: %v\n", err)
 		return
 	}
 	defer func() {
 		if err = conf.Close(); err != nil {
-			log.Fatalf("Error closing config file: %v", err)
+			log.Printf("Error closing config file: %v\n", err)
 		}
 	}()
 	jsonParser := json.NewDecoder(conf)
 	if err = jsonParser.Decode(&config); err != nil {
-		log.Fatalf("Error parsing config file: %v", err)
+		log.Printf("Error parsing config file: %v\n", err)
 		return
 	}
 
 	red, err := redis.DialURL(config.RedisConnectionString)
 	if err != nil {
-		log.Fatalf("Error connecting to redis server: %v", err)
+		log.Printf("Error connecting to redis server: %v\n", err)
 		return
 	}
 	redisConn = red
 	defer func() {
 		if err = red.Close(); err != nil {
-			log.Fatalf("Error closing redis connection: %v", err)
+			log.Printf("Error closing redis connection: %v\n", err)
 		}
 	}()
 
@@ -204,7 +207,7 @@ func main() {
 
 	htmlFile, err := ioutil.ReadFile(config.HTMLPath)
 	if err != nil {
-		log.Fatalf("Error opening html file: %v", err)
+		log.Printf("Error opening html file: %v\n", err)
 		return
 	}
 	mainpage = string(htmlFile)
@@ -215,10 +218,12 @@ func main() {
 	http.HandleFunc("/invite", handleInvite)
 
 	go func() {
+		log.Println("starting up http redirect...")
 		if err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS)); err != nil {
-			log.Fatalf("ListenAndServeError: %v", err)
+			log.Printf("ListenAndServeError: %v\n", err)
 		}
 	}()
 
-	log.Fatal(http.ListenAndServeTLS(":443", config.CertificatePath, config.PrivateKeyPath, nil))
+	log.Println("starting up https listener...")
+	log.Print(http.ListenAndServeTLS(":443", config.CertificatePath, config.PrivateKeyPath, nil))
 }
