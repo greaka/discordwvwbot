@@ -119,6 +119,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		updateUserChannel <- user.ID
 	}
 
 	if _, err = fmt.Fprint(w, "Success"); err != nil {
