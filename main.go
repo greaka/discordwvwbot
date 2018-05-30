@@ -10,8 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yasvisu/gw2api"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/gomodule/redigo/redis"
 
@@ -19,6 +17,12 @@ import (
 )
 
 const discordAPIURL string = "https://discordapp.com/api"
+
+type tokenInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Permissions []string `json:"permissions"`
+}
 
 var config struct {
 	CertificatePath       string `json:"certificatePath"`
@@ -139,7 +143,7 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 		jsonParser := json.NewDecoder(res.Body)
-		var token gw2api.TokenInfo
+		var token tokenInfo
 		err = jsonParser.Decode(&token)
 		if err != nil {
 			log.Printf("Error parsing json to tokeninfo: %v\n", err)

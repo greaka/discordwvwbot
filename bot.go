@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
-	"github.com/yasvisu/gw2api"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -32,6 +31,11 @@ type gw2Account struct {
 	DailyAP      int `json:"daily_ap"`
 	MonthlyAP    int `json:"monthly_ap"`
 	WvWRank      int `json:"wvw_rank"`
+}
+
+type worldStruct struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 func startBot() {
@@ -167,7 +171,7 @@ func updateCurrentWorlds() {
 		}
 	}()
 	jsonParser := json.NewDecoder(res.Body)
-	var worlds []gw2api.World
+	var worlds []worldStruct
 	erro = jsonParser.Decode(&worlds)
 	if erro != nil {
 		log.Printf("Error parsing json to world data: %v\n", erro)
