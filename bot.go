@@ -139,7 +139,7 @@ func updateAllUsers() {
 			<-iterateThroughUsers
 			updateUserChannel <- userIds[0]
 		}
-		remove(userIds, 0)
+		userIds = remove(userIds, 0)
 	}
 	log.Println("Finished updating all users")
 }
