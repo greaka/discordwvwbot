@@ -148,11 +148,19 @@ func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	updateUserInGuild(m.User.ID, m.GuildID)
 }
 func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
-	_, err := redisConn.Do("SADD", "guilds", m.ID)
+	alreadyIn, err := redis.Int(redisConn.Do("SISMEMBER", "guilds", m.ID))
 	if err != nil {
-		log.Printf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
+		log.Printf("Error checking if guild %v is in redis guilds: %v\n", m.ID, err)
+		return
 	}
-	updateAllUsers()
+	if alreadyIn == 0 {
+		_, err = redisConn.Do("SADD", "guilds", m.ID)
+		if err != nil {
+			log.Printf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
+			return
+		}
+		updateAllUsers()
+	}
 }
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 	_, err := redisConn.Do("SREM", "guilds", m.ID)
