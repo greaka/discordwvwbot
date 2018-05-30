@@ -118,6 +118,7 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 }
 
 func updateAllUsers() {
+	log.Println("Updating all users...")
 	keys, err := redis.Values(redisConn.Do("KEYS", "*"))
 	if err != nil {
 		log.Printf("Error getting keys * from redis: %v\n", err)
@@ -140,6 +141,7 @@ func updateAllUsers() {
 		}
 		remove(userIds, 0)
 	}
+	log.Println("Finished updating all users")
 }
 
 func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
@@ -160,6 +162,7 @@ func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 }
 
 func updateCurrentWorlds() {
+	log.Println("Updating worlds...")
 	res, erro := http.Get("https://api.guildwars2.com/v2/worlds?ids=all")
 	if erro != nil {
 		log.Printf("Error getting worlds info: %v\n", erro)
@@ -182,6 +185,7 @@ func updateCurrentWorlds() {
 	for _, world := range worlds {
 		currentWorlds[world.ID] = world.Name
 	}
+	log.Println("Finished updating worlds")
 }
 
 func updateUser(userID string) {
