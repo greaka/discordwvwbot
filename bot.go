@@ -109,9 +109,17 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 	nextUSReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextSaturday, 2, 15, 0, 0, time.UTC)
 	var nextReset time.Time
 	if nextEUReset.Before(nextUSReset) {
-		nextReset = nextEUReset
+		if nextEUReset.Before(time.Now()) {
+			nextReset = nextUSReset
+		} else {
+			nextReset = nextEUReset
+		}
 	} else {
-		nextReset = nextUSReset
+		if nextEUReset.Before(time.Now()) {
+			nextReset = nextEUReset
+		} else {
+			nextReset = nextUSReset
+		}
 	}
 	worldsChannel = time.After(time.Until(nextReset))
 	return
