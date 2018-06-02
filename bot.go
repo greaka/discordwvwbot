@@ -104,7 +104,13 @@ func updater() {
 
 func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 	daysUntilNextFriday := int(time.Friday - time.Now().Weekday())
+	if daysUntilNextFriday < 0 {
+		daysUntilNextFriday += 7
+	}
 	daysUntilNextSaturday := int(time.Saturday - time.Now().Weekday())
+	if daysUntilNextSaturday < 0 {
+		daysUntilNextSaturday += 7
+	}
 	nextEUReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextFriday, 18, 15, 0, 0, time.UTC)
 	nextUSReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextSaturday, 2, 15, 0, 0, time.UTC)
 	var nextReset time.Time
