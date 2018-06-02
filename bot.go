@@ -115,7 +115,7 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 			nextReset = nextEUReset
 		}
 	} else {
-		if nextEUReset.Before(time.Now()) {
+		if nextUSReset.Before(time.Now()) {
 			nextReset = nextEUReset
 		} else {
 			nextReset = nextUSReset
