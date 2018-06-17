@@ -14,9 +14,19 @@ import (
 )
 
 var (
-	updateUserChannel chan string
-	dg                *discordgo.Session
-	currentWorlds     map[int]string
+	updateUserChannel       chan string
+	dg                      *discordgo.Session
+	currentWorlds           map[int]string
+	delayBetweenFullUpdates time.Duration
+)
+
+const (
+	/* 	gw2 api rate limit: 600 requests per minute
+	api keys to check per user (average): 2
+	600 / 2 = 300 users per minute
+	60/300 = 0.2s per user
+	*/
+	delayBetweenUsers time.Duration = 200 * time.Millisecond
 )
 
 type gw2Account struct {
@@ -88,9 +98,13 @@ func startBot() {
 
 func updater() {
 	updateCurrentWorlds()
-	updateAllUsers()
-	queueUserChannel := time.Tick(24 * time.Hour)
+	updateAllUsers() // has to run here to set delayBetweenFullUpdates
 	for {
+		fullUpdateDelay := delayBetweenFullUpdates
+		if delayBetweenFullUpdates < 15*time.Minute {
+			fullUpdateDelay = 15 * time.Minute
+		}
+		queueUserChannel := time.After(fullUpdateDelay)
 		worldsChannel := resetWorldUpdateTimer()
 		select {
 		case <-queueUserChannel:
@@ -146,7 +160,8 @@ func updateAllUsers() {
 		return
 	}
 
-	iterateThroughUsers := time.Tick(500 * time.Millisecond)
+	delayBetweenFullUpdates = delayBetweenUsers * time.Duration((len(userIds) + 50)) // updatetime per user * (number of users + 50 margin)
+	iterateThroughUsers := time.Tick(delayBetweenUsers)
 
 	for len(userIds) > 0 {
 		if userIds[0] != "guilds" {
