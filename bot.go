@@ -299,7 +299,11 @@ func getAccountData(userID string) (name string, worlds []string) {
 		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
-	name = name[3:]
+	if len(name) < 3 {
+		log.Printf("Name had less than 3 characters: %v", userID)
+	} else {
+		name = name[3:]
+	}
 	return
 }
 

@@ -77,7 +77,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	res, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error getting discord id: %v\n", err)
-		if _, erro := fmt.Fprint(w, "Error getting discord id..."); erro != nil {
+		if _, erro := fmt.Fprint(w, "Error getting discord id. Please contact me."); erro != nil {
 			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
@@ -99,7 +99,8 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if state == "deletemydata" {
+	switch state {
+	case "deletemydata":
 		_, err = redisConn.Do("DEL", user.ID)
 		if err != nil {
 			log.Printf("Error deleting key from redis: %v\n", err)
@@ -108,9 +109,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-	} else if state == "syncnow" {
+	case "syncnow":
 		updateUserChannel <- user.ID
-	} else {
+	default:
 		_, err = redisConn.Do("SADD", user.ID, state)
 		if err != nil {
 			log.Printf("Error saving key to redis: %v\n", err)
@@ -119,6 +120,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		log.Printf("New user: %v", user.ID)
 		updateUserChannel <- user.ID
 	}
 
