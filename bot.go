@@ -299,6 +299,7 @@ func getAccountData(userID string) (name string, worlds []string) {
 		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
+	name = name[3:]
 	return
 }
 
@@ -308,7 +309,7 @@ func updateUserInGuild(userID string, guildID string) {
 }
 
 func updateUserDataInGuild(userID, guildID, name string, worlds []string) {
-	dg.GuildMemberNickname(guildID, userID, name[3:]) // nolint: errcheck
+	dg.GuildMemberNickname(guildID, userID, name) // nolint: errcheck
 	updateUserToWorldsInGuild(userID, guildID, worlds)
 }
 
