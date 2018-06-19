@@ -280,8 +280,8 @@ func getAccountData(userID string) (name string, worlds []string) {
 				}
 			} else {
 				log.Printf("Error getting account info: %v\n", erro)
-				continue
 			}
+			continue
 		}
 		defer func() {
 			if err = res.Body.Close(); err != nil {
@@ -299,11 +299,7 @@ func getAccountData(userID string) (name string, worlds []string) {
 		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
-	if len(name) < 3 {
-		log.Printf("Name had less than 3 characters: %v", userID)
-	} else {
-		name = name[3:]
-	}
+	name = name[3:]
 	return
 }
 
