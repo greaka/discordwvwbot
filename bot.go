@@ -292,14 +292,18 @@ func getAccountData(userID string) (name string, worlds []string) {
 		var account gw2Account
 		erro = jsonParser.Decode(&account)
 		if erro != nil {
-			log.Printf("Error parsing json to account data: %v\n", erro)
+			log.Printf("Error parsing json to account data: %v, user %v\n", erro, userID)
 			continue
 		}
 
 		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
-	name = name[3:]
+	if len(name) < 3 {
+		log.Printf("Name had less than 3 characters: %v", userID)
+	} else {
+		name = name[3:]
+	}
 	return
 }
 

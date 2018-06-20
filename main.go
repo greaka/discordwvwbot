@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -47,6 +48,7 @@ func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRootRequest(w http.ResponseWriter, r *http.Request) {
+	addHeaders(w, r)
 	if _, err := fmt.Fprintf(w, mainpage); err != nil {
 		log.Printf("Error handling root request: %v\n", err)
 	}
@@ -54,6 +56,7 @@ func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 
 // nolint: gocyclo
 func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
+	addHeaders(w, r)
 	state := r.FormValue("state")
 	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("code"))
 	if err != nil {
@@ -130,6 +133,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
+	addHeaders(w, r)
 	key := r.FormValue("key")
 	if key != "deletemydata" && key != "syncnow" {
 		res, err := http.Get("https://api.guildwars2.com/v2/tokeninfo?access_token=" + key)
@@ -168,7 +172,12 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleInvite(w http.ResponseWriter, r *http.Request) {
+	addHeaders(w, r)
 	http.Redirect(w, r, "https://discordapp.com/oauth2/authorize?client_id="+config.DiscordClientID+"&scope=bot&permissions=402653184", http.StatusPermanentRedirect)
+}
+
+func addHeaders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 }
 
 func main() {
@@ -229,11 +238,6 @@ func main() {
 	}
 	mainpage = string(htmlFile)
 
-	http.HandleFunc("/", handleRootRequest)
-	http.HandleFunc("/login", handleAuthRequest)
-	http.HandleFunc(config.RedirectURL, handleAuthCallback)
-	http.HandleFunc("/invite", handleInvite)
-
 	go func() {
 		log.Println("starting up http redirect...")
 		if err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS)); err != nil {
@@ -241,6 +245,30 @@ func main() {
 		}
 	}()
 
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", handleRootRequest)
+	mux.HandleFunc("/login", handleAuthRequest)
+	mux.HandleFunc(config.RedirectURL, handleAuthCallback)
+	mux.HandleFunc("/invite", handleInvite)
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+	srv := &http.Server{
+		Addr:         ":443",
+		Handler:      mux,
+		TLSConfig:    cfg,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+
 	log.Println("starting up https listener...")
-	log.Fatal(http.ListenAndServeTLS(":443", config.CertificatePath, config.PrivateKeyPath, nil))
+	log.Fatal(srv.ListenAndServeTLS(config.CertificatePath, config.PrivateKeyPath))
 }
