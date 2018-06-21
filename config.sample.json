@@ -1,5 +1,5 @@
 {
-    "certificatePath": "server.crt",
+    "certificatePath": "fullchain.pem",
     "privateKeyPath": "private.pem",
     "botToken": "foo",
     "discordClientId": "bar",
