@@ -176,6 +176,7 @@ func updateAllUsers() {
 func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	updateUserInGuild(m.User.ID, m.GuildID)
 }
+
 func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	alreadyIn, err := redis.Int(redisConn.Do("SISMEMBER", "guilds", m.ID))
 	if err != nil {
@@ -239,7 +240,7 @@ func updateUser(userID string) {
 		return
 	}
 
-	name, worlds := getAccountData(userID)
+	name, worlds, err := getAccountData(userID)
 
 	for _, guild := range guildList {
 		_, erro := dg.GuildMember(guild, userID)
@@ -252,11 +253,12 @@ func updateUser(userID string) {
 			}
 		}
 
-		updateUserDataInGuild(userID, guild, name, worlds)
+		updateUserDataInGuild(userID, guild, name, worlds, err == nil)
 	}
 }
 
-func getAccountData(userID string) (name string, worlds []string) {
+// nolint: gocyclo
+func getAccountData(userID string) (name string, worlds []string, err error) {
 	apikeys, err := redis.Values(redisConn.Do("SMEMBERS", userID))
 	if err != nil {
 		log.Printf("Error getting api keys from redis: %v\n", err)
@@ -281,10 +283,11 @@ func getAccountData(userID string) (name string, worlds []string) {
 			} else {
 				log.Printf("Error getting account info: %v\n", erro)
 			}
+			err = erro
 			continue
 		}
 		defer func() {
-			if err = res.Body.Close(); err != nil {
+			if erro = res.Body.Close(); erro != nil {
 				log.Printf("Error closing response body: %v\n", err)
 			}
 		}()
@@ -292,33 +295,55 @@ func getAccountData(userID string) (name string, worlds []string) {
 		var account gw2Account
 		erro = jsonParser.Decode(&account)
 		if erro != nil {
-			log.Printf("Error parsing json to account data: %v, user %v\n", erro, userID)
+			if res.StatusCode >= 500 {
+				log.Printf("Internal api server error: %v", res.Status)
+			} else {
+				log.Printf("Error parsing json to account data: %v, user %v\n", erro, userID)
+			}
+			err = erro
 			continue
 		}
 
 		name += " | " + account.Name
 		worlds = append(worlds, currentWorlds[account.World])
 	}
-	if len(name) < 3 {
-		log.Printf("Name had less than 3 characters: %v", userID)
-	} else {
+	if len(name) >= 3 {
 		name = name[3:]
 	}
 	return
 }
 
-func updateUserInGuild(userID string, guildID string) {
-	name, worlds := getAccountData(userID)
-	updateUserDataInGuild(userID, guildID, name, worlds)
+func updateUserInGuild(userID, guildID string) {
+	name, worlds, err := getAccountData(userID)
+	updateUserDataInGuild(userID, guildID, name, worlds, err == nil)
 }
 
-func updateUserDataInGuild(userID, guildID, name string, worlds []string) {
+func updateUserDataInGuild(userID, guildID, name string, worlds []string, removeWorlds bool) {
 	dg.GuildMemberNickname(guildID, userID, name) // nolint: errcheck
-	updateUserToWorldsInGuild(userID, guildID, worlds)
+	updateUserToWorldsInGuild(userID, guildID, worlds, removeWorlds)
 }
 
-// nolint: gocyclo
-func updateUserToWorldsInGuild(userID string, guildID string, worldNames []string) {
+func removeWorldsFromUserInGuild(userID, guildID string, member *discordgo.Member, guildRolesMap map[string]string,
+	worldNames []string, removeWorlds bool) (wNames []string) {
+
+	for _, role := range member.Roles {
+		if getIndexByValue(guildRolesMap[role], currentWorlds) != -1 {
+			index := indexOf(guildRolesMap[role], worldNames)
+			if index == -1 && removeWorlds {
+				erro := dg.GuildMemberRoleRemove(guildID, userID, role)
+				if erro != nil {
+					log.Printf("Error removing guild member role: %v\n", erro)
+				}
+			} else {
+				worldNames = remove(worldNames, index)
+			}
+		}
+	}
+	wNames = worldNames
+	return
+}
+
+func updateUserToWorldsInGuild(userID, guildID string, worldNames []string, removeWorlds bool) {
 	member, err := dg.GuildMember(guildID, userID)
 	if err != nil {
 		log.Printf("Error getting guild member: %v\n", err)
@@ -338,19 +363,7 @@ func updateUserToWorldsInGuild(userID string, guildID string, worldNames []strin
 		guildRoleNames = append(guildRoleNames, role.Name)
 	}
 
-	for _, role := range member.Roles {
-		if getIndexByValue(guildRolesMap[role], currentWorlds) != -1 {
-			index := indexOf(guildRolesMap[role], worldNames)
-			if index == -1 {
-				erro := dg.GuildMemberRoleRemove(guildID, userID, role)
-				if erro != nil {
-					log.Printf("Error removing guild member role: %v\n", erro)
-				}
-			} else {
-				worldNames = remove(worldNames, index)
-			}
-		}
-	}
+	worldNames = removeWorldsFromUserInGuild(userID, guildID, member, guildRolesMap, worldNames, removeWorlds)
 
 	for _, role := range worldNames {
 		var roleID string
