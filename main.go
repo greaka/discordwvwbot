@@ -208,7 +208,8 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// check if api key contains wvwbot
-		if !strings.Contains(token.Name, "wvwbot") {
+		nameInLower := strings.ToLower(token.Name)
+		if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
 			if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
 				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
