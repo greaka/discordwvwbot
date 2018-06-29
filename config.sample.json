@@ -7,5 +7,7 @@
     "domain": "https://example.com",
     "html": "mainpage.minified",
     "redis": "redis://user:pass@domain.com:6000",
-    "oauthredirect": "/oauthcallback"
+    "oauthredirect": "/oauthcallback",
+    "webhookid": "123",
+    "webhooktoken": "abc"
 }

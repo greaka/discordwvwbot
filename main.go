@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -56,6 +57,14 @@ var config struct {
 	// RedirectURL holds the relative url where oauth requests get redirected to.
 	// This has to be identical to your settings at the discord bot settings page.
 	RedirectURL string `json:"oauthredirect"`
+
+	// WebhookID writes logs to the given webhook if set up
+	// WebhookID is optional
+	WebhookID string `json:"webhookid"`
+
+	// WebhookToken is the auth token for the webhook
+	// WebhookToken is optional
+	WebhookToken string `json:"webhooktoken"`
 }
 
 var (
@@ -234,6 +243,7 @@ func addHeaders(w http.ResponseWriter, r *http.Request) {
 }
 
 // main is the entry point and fires up everything
+// nolint: gocyclo
 func main() {
 	// open log file to write to it
 	f, err := os.OpenFile("botlog", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
@@ -263,6 +273,14 @@ func main() {
 	jsonParser := json.NewDecoder(conf)
 	if err = jsonParser.Decode(&config); err != nil {
 		log.Fatalf("Error parsing config file: %v\n", err)
+	}
+
+	var webhookLogger WebhookLogger
+	if config.WebhookID != "" && config.WebhookToken != "" {
+		webhookLogger = WebhookLogger{}
+		webhookLogger.SetOutput(config.WebhookID, config.WebhookToken)
+		w := io.MultiWriter(f, webhookLogger)
+		log.SetOutput(w)
 	}
 
 	// open redis connection
