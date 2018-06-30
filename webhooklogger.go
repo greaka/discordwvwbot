@@ -6,7 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// WebhookLogger writes to to specified webhook
+// WebhookLogger writes to the specified webhook
 type WebhookLogger struct {
 	id    string
 	token string
@@ -14,8 +14,9 @@ type WebhookLogger struct {
 
 // Write implements io.Writer and performs the write to the webhook
 func (w WebhookLogger) Write(p []byte) (n int, err error) {
+	content := string(p)
 	webhookParams := &discordgo.WebhookParams{
-		Content: string(p),
+		Content: content,
 	}
 
 	if dg == nil {
@@ -25,6 +26,12 @@ func (w WebhookLogger) Write(p []byte) (n int, err error) {
 	}
 
 	err = dg.WebhookExecute(w.id, w.token, true, webhookParams)
+	// io.Writer specifies that the number of written characters has to be returned
+	if err != nil {
+		n = 0
+	} else {
+		n = len(content)
+	}
 	return
 }
 
