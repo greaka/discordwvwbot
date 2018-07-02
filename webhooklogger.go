@@ -16,7 +16,7 @@ type WebhookLogger struct {
 func (w WebhookLogger) Write(p []byte) (n int, err error) {
 	content := string(p)
 	webhookParams := &discordgo.WebhookParams{
-		Content: content,
+		Content: "`" + content + "`",
 	}
 
 	if dg == nil {
