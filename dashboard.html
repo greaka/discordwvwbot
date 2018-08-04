@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<style>
+    body {
+        background-color: #2C2F33;
+        color: #fff;
+        font-size: 18px;
+        font-weight: 500;
+        font-family: Whitney, "Helvetica Neue", Helvetica, Arial, sans-serif;
+        margin: auto;
+        padding-left: 10px;
+    }
+
+    [type="checkbox"] {
+        display: none;
+    }
+
+    [type="checkbox"]+label {
+        position: relative;
+        padding-left: 3.2em;
+        padding-top: .1em;
+        cursor: pointer;
+        top: 10px;
+    }
+
+    [type="checkbox"]+label:before,
+    [type="checkbox"]+label:after {
+        content: '';
+        position: absolute;
+        height: 18px;
+    }
+
+    [type="checkbox"]+label:before {
+        left: 0;
+        top: 0;
+        width: 42px;
+        border: 2px solid #72767d;
+        background: #72767d;
+        border-radius: 0.8em;
+        z-index: -1;
+    }
+
+    [type="checkbox"]+label:after {
+        margin: 2px;
+        top: 0;
+        left: 0;
+        background-color: #fff;
+        border-radius: 50%;
+        width: 18px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, .3);
+        transition: all .1s ease-in-out;
+    }
+
+    [type="checkbox"]:checked+label:after {
+        left: 24px;
+    }
+
+    [type="checkbox"]:checked+label:before {
+        background-color: #7289DA;
+        border-color: #7289DA;
+    }
+
+    a:link,
+    a:visited {
+        color: #7289DA;
+    }
+
+    .nav a {
+        color: #fff;
+        text-decoration-line: none;
+    }
+
+    h3,
+    code {
+        color: #d38b34;
+    }
+
+    code {
+        background-color: #23272a;
+    }
+
+    .side {
+        float: right;
+        margin-right: 5px;
+    }
+
+    input {
+        -webkit-border-radius: 5px;
+        border-radius: 5px;
+    }
+
+    [type=text] {
+        padding: 5px;
+        border: 1 solid;
+    }
+
+    [type=submit] {
+        padding: 5px 15px;
+        background-color: #7289DA;
+        border: 0 none;
+        cursor: pointer;
+    }
+
+    .flex {
+        display: flex;
+        flex-flow: row nowrap;
+        width: 100%;
+        height: 100%;
+    }
+
+    .nav {
+        flex: 0 0 200px;
+        white-space: nowrap;
+    }
+
+    .content {
+        flex: 10 1;
+        padding-left: 20px;
+    }
+
+    label h3 {
+        display: inline;
+    }
+
+    :not(label) h3 {
+        margin-top: 40px;
+    }
+
+    #explanation {
+        margin: 10px;
+        padding: 0 10px;
+        background-color: rgba(211, 139, 52, 0.1);
+        box-shadow: 0px 0px 1px 2px rgba(211, 139, 52, 0.1);
+    }
+
+    #explanation,
+    #explanation *,
+    .mode-based,
+    .mode-based *,
+    .linked,
+    .linked *,
+    .delete-linked,
+    .delete-linked * {
+        max-height: 100%;
+        opacity: 1;
+        transition: opacity 0.15s ease-in-out, all 0.15s 0.15s;
+    }
+
+    #check-explain:not(:checked)~#explanation,
+    #check-explain:not(:checked)~#explanation *,
+    #radioall:checked~.not-all-servers,
+    #radioall:checked~.not-all-servers *,
+    #radioall:not(:checked)~.all-servers,
+    #radioall:not(:checked)~.all-servers *,
+    #radioone:not(:checked)~.one-server,
+    #radioone:not(:checked)~.one-server *,
+    #radiouser:not(:checked)~.user-based,
+    #radiouser:not(:checked)~.user-based *,
+    #allow-linked:not(:checked)~.linked,
+    #allow-linked:not(:checked)~.linked *,
+    #squash:checked~.delete-linked,
+    #squash:checked~.delete-linked * {
+        opacity: 0;
+        margin: 0 auto;
+        padding-top: 0;
+        padding-bottom: 0;
+        max-height: 0;
+    }
+
+    .radio-toolbar {
+        padding: 10px 0;
+    }
+
+    [type="radio"] {
+        display: none;
+    }
+
+    label.radio-toolbar {
+        padding: 10px;
+        background-color: #23272a;
+        border-radius: 8px;
+        box-shadow: 0 2px 2px #000;
+        margin: 5px;
+        cursor: pointer;
+    }
+
+    label:hover.radio-toolbar {
+        box-shadow: 0 0 0 #000;
+    }
+
+    [type="radio"]:checked+label,
+    .nav .active {
+        color: #7289DA;
+    }
+
+    .spacer {
+        margin-top: 20px;
+    }
+
+    li {
+        text-decoration-line: underline
+    }
+</style>
+
+<body>
+    <div class="flex">
+        <div class="nav">
+            <h1>Dashboard</h1>
+            <br>
+            <a href="/dashboard?id=discordserverid">
+                <label class="radio-toolbar">Another Discord Server Name</label>
+            </a>
+            <br>
+            <br>
+            <br>
+            <a href="/dashboard?id=discordserverid">
+                <label class="radio-toolbar active">Discord Server Name</label>
+            </a>
+        </div>
+        <div class="content">
+            <br>
+            <input type="checkbox" id="check-explain">
+            <label for="check-explain">
+                <h3>Explanation</h3>
+            </label>
+            <div id="explanation">
+                <h4>Modes</h4>
+                <ul>
+                    <li>All Servers</li>
+                    <p>The bot will allow every server on the discord. Whenever someone joins the discord or adds an api key
+                        with a server that is not already present, then the bot will create a new role with the server name.</p>
+                    <li>One Server</li>
+                    <p>The bot will only allow the server that you specify. When you choose to allow linked servers, then two
+                        roles will be created; the name of the server you pick and a role
+                        <code>Linked Servers</code> that every user of any linked server will get.</p>
+                    <li>User Based</li>
+                    <p>
+                        Works like
+                        <code>One Server</code> but instead of choosing the server, the bot will look up your server and choose the main server
+                        based on the account you choose.
+                        <br>The bot will save your api key even if you delete it from your account.</p>
+                    <p>
+                        <code>Caution:</code> The bot will break on your server if you delete the api key and don't choose a new one here.
+                    </p>
+                </ul>
+            </div>
+            <br>
+            <h3>Mode</h3>
+
+            <input class="radio-toolbar" type="radio" id="radioall" name="mode" value="1">
+            <label class="radio-toolbar" for="radioall">All Servers</label>
+
+            <input class="radio-toolbar" type="radio" id="radioone" name="mode" value="2" checked>
+            <label class="radio-toolbar" for="radioone">One Server</label>
+
+            <input class="radio-toolbar" type="radio" id="radiouser" name="mode" value="3">
+            <label class="radio-toolbar" for="radiouser">User Based</label>
+
+
+            <h3>Server Settings</h3>
+
+            <input type="checkbox" id="rename-users">
+            <label for="rename-users">Rename users to their Gw2 account names</label>
+
+            <div class="mode-based all-servers spacer">
+                <input type="checkbox" id="create-all">
+                <label for="create-all">Create all server roles immediately</label>
+            </div>
+
+            <div class="mode-based not-all-servers spacer">
+                <input type="checkbox" id="allow-linked" checked>
+                <label for="allow-linked">Allow linked Servers</label>
+
+                <div class="linked spacer">
+                    <input type="checkbox" id="squash">
+                    <label for="squash">Only use one
+                        <code>Verified</code> role for all users instead of splitting them into
+                        <code>server name</code> and
+                        <code>Linked Servers</code>
+                    </label>
+
+                    <div class="delete-linked spacer">
+                        <input type="checkbox" id="delete-linked">
+                        <label for="delete-linked">
+                            Remove all users from the
+                            <code>Linked Servers</code> role when the linked servers change
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="mode-based one-server">
+                <h3>Choose the server</h3>
+
+                <input class="radio-toolbar" type="radio" id="server1" name="server" value="1012">
+                <label class="radio-toolbar" for="server1">Darkhaven</label>
+            </div>
+            <div class="mode-based user-based">
+                <h3>Choose the account</h3>
+
+                <input class="radio-toolbar" type="radio" id="account1" name="account" value="apikey">
+                <label class="radio-toolbar" for="account1">LongName.1234</label>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
