@@ -318,6 +318,7 @@ func main() {
 		webhookLoggerWarning.SetOutput(dg, config.WebhookIDWarning, config.WebhookTokenWarning)
 		w := io.MultiWriter(f, webhookLoggerWarning)
 		loglevels.SetWriter(loglevels.LevelWarning, w)
+		log.SetOutput(w)
 	}
 
 	var webhookLoggerError webhooklogger.WebhookLogger
