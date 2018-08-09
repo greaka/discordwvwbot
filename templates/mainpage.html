@@ -1,52 +1,9 @@
 <!DOCTYPE html>
 <html>
-<style>
-    body {
-        background-color: #2C2F33;
-        color: #fff;
-        font-size: 18px;
-        font-weight: 500;
-        font-family: Whitney, "Helvetica Neue", Helvetica, Arial, sans-serif;
-        max-width: 700px;
-        margin: auto;
-    }
 
-    a:link,
-    a:visited {
-        color: #7289DA;
-    }
-
-    h3,
-    code {
-        color: rgb(211, 139, 52)
-    }
-
-    code {
-        background-color: #23272A;
-    }
-
-    .side {
-        float: right;
-        margin-right: 5px;
-    }
-
-    input {
-        -webkit-border-radius: 5px;
-        border-radius: 5px;
-    }
-
-    input[type=text] {
-        padding: 5px;
-        border: 1 solid;
-    }
-
-    input[type=submit] {
-        padding: 5px 15px;
-        background-color: #7289DA;
-        border: 0 none;
-        cursor: pointer;
-    }
-</style>
+<head>
+    <link type="text/css" rel="stylesheet" href="https://cdn.rawgit.com/greaka/discordwvwbot/87eee7fc/templates/master.css">
+</head>
 
 <body>
     <form action="https://github.com/greaka/discordwvwbot" class="side">
@@ -84,18 +41,18 @@
         <input type="text" name="key" value="">
         <br>
         <br>
-        <input type="submit" value="Login with Discord" style="font-size:15px">
+        <input type="submit" value="Login with Discord" class="fs15">
     </form>
     <br>
     <form action="/login">
-        <input type="text" name="key" value="syncnow" style="display:none">
+        <input type="text" name="key" value="syncnow" class="hide">
         <input type="submit" value="Sync now">
     </form>
     <br>
     <br>
     <form action="/login">
-        <input type="text" name="key" value="deletemydata" style="display:none">
-        <input type="submit" value="Delete all my data" style="color:black;background-color: red">
+        <input type="text" name="key" value="deletemydata" class="hide">
+        <input type="submit" value="Delete all my data" class="warning">
     </form>
 
 </body>
