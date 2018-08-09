@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/greaka/discordwvwbot/loglevels"
 
 	"github.com/gomodule/redigo/redis"
 
@@ -62,13 +63,7 @@ type worldStruct struct {
 func startBot() {
 	updateUserChannel = make(chan string)
 
-	// connect to the discord bot api
 	var err error
-	dg, err = discordgo.New("Bot " + config.BotToken)
-	if err != nil {
-		log.Printf("Error connecting to discord: %v\n", err)
-		return
-	}
 
 	// add event listener
 	dg.AddHandler(guildCreate)
@@ -78,15 +73,15 @@ func startBot() {
 	// open the connection to listen for events
 	err = dg.Open()
 	if err != nil {
-		log.Printf("Error opening discord connection: %v\n", err)
+		loglevels.Errorf("Error opening discord connection: %v\n", err)
 		return
 	}
 	defer func() {
 		if err = dg.Close(); err != nil {
-			log.Printf("Error closing discord connection: %v\n", err)
+			loglevels.Errorf("Error closing discord connection: %v\n", err)
 		}
 	}()
-	log.Println("Bot is now running")
+	loglevels.Info("Bot is now running")
 
 	// update discord status to "listening to <hosturl>"
 	status := discordgo.UpdateStatusData{
@@ -100,7 +95,7 @@ func startBot() {
 	}
 	statusUpdateError := dg.UpdateStatusComplex(status)
 	if statusUpdateError != nil {
-		log.Printf("Error updating discord status: %v\n", statusUpdateError)
+		loglevels.Errorf("Error updating discord status: %v\n", statusUpdateError)
 	}
 
 	// firing up the update cycle
@@ -168,14 +163,14 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 
 // updateAllUsers will send update requests for every user and will wait the set duration between requests
 func updateAllUsers() {
-	log.Println("Updating all users...")
+	loglevels.Info("Updating all users...")
 	// get every key
 	/* blocks redis database with O(n)
 	 * since this bot will never have millions of updates per second, this is fine
 	 */
 	keys, err := redis.Values(redisConn.Do("KEYS", "*"))
 	if err != nil {
-		log.Printf("Error getting keys * from redis: %v\n", err)
+		loglevels.Errorf("Error getting keys * from redis: %v\n", err)
 		return
 	}
 
@@ -183,7 +178,7 @@ func updateAllUsers() {
 	var userIds []string
 	err = redis.ScanSlice(keys, &userIds)
 	if err != nil {
-		log.Printf("Error converting keys * to []string: %v\n", err)
+		loglevels.Errorf("Error converting keys * to []string: %v\n", err)
 		return
 	}
 
@@ -199,7 +194,7 @@ func updateAllUsers() {
 		}
 		userIds = remove(userIds, 0)
 	}
-	log.Println("Finished updating all users")
+	loglevels.Info("Finished updating all users")
 }
 
 // guildMemberAdd listens to new users joining a discord server
@@ -214,13 +209,13 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	// only update when the guild is not already in the database
 	alreadyIn, err := redis.Int(redisConn.Do("SISMEMBER", "guilds", m.ID))
 	if err != nil {
-		log.Printf("Error checking if guild %v is in redis guilds: %v\n", m.ID, err)
+		loglevels.Errorf("Error checking if guild %v is in redis guilds: %v\n", m.ID, err)
 		return
 	}
 	if alreadyIn == 0 {
 		_, err = redisConn.Do("SADD", "guilds", m.ID)
 		if err != nil {
-			log.Printf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
+			loglevels.Errorf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
 			return
 		}
 		updateAllUsers()
@@ -231,7 +226,7 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 	_, err := redisConn.Do("SREM", "guilds", m.ID)
 	if err != nil {
-		log.Printf("Error removing guild %v from redis guilds: %v\n", m.ID, err)
+		loglevels.Errorf("Error removing guild %v from redis guilds: %v\n", m.ID, err)
 	}
 }
 
@@ -239,15 +234,15 @@ func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 func updateCurrentWorlds() {
 
 	// get worlds data
-	log.Println("Updating worlds...")
+	loglevels.Info("Updating worlds...")
 	res, erro := http.Get(gw2APIURL + "/worlds?ids=all")
 	if erro != nil {
-		log.Printf("Error getting worlds info: %v\n", erro)
+		loglevels.Errorf("Error getting worlds info: %v\n", erro)
 		return
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
-			log.Printf("Error closing response body: %v\n", err)
+			loglevels.Errorf("Error closing response body: %v\n", err)
 		}
 	}()
 
@@ -256,7 +251,7 @@ func updateCurrentWorlds() {
 	var worlds []worldStruct
 	erro = jsonParser.Decode(&worlds)
 	if erro != nil {
-		log.Printf("Error parsing json to world data: %v\n", erro)
+		loglevels.Errorf("Error parsing json to world data: %v\n", erro)
 		return
 	}
 
@@ -265,7 +260,7 @@ func updateCurrentWorlds() {
 	for _, world := range worlds {
 		currentWorlds[world.ID] = world.Name
 	}
-	log.Println("Finished updating worlds")
+	loglevels.Info("Finished updating worlds")
 }
 
 // updateUser updates a single user on all discord servers
@@ -274,14 +269,14 @@ func updateUser(userID string) {
 	// get discord server list
 	guilds, err := redis.Values(redisConn.Do("SMEMBERS", "guilds"))
 	if err != nil {
-		log.Printf("Error getting guilds from redis: %v\n", err)
+		loglevels.Errorf("Error getting guilds from redis: %v\n", err)
 		return
 	}
 
 	var guildList []string
 	err = redis.ScanSlice(guilds, &guildList)
 	if err != nil {
-		log.Printf("Error converting guilds to []string: %v\n", err)
+		loglevels.Errorf("Error converting guilds to []string: %v\n", err)
 		return
 	}
 
@@ -295,7 +290,7 @@ func updateUser(userID string) {
 			if strings.Contains(erro.Error(), fmt.Sprintf("%v", discordgo.ErrCodeUnknownMember)) {
 				continue
 			} else {
-				log.Printf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
+				loglevels.Errorf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
 				continue
 			}
 		}
@@ -311,14 +306,14 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 	// get all api keys of the user
 	apikeys, err := redis.Values(redisConn.Do("SMEMBERS", userID))
 	if err != nil {
-		log.Printf("Error getting api keys from redis: %v\n", err)
+		loglevels.Errorf("Error getting api keys from redis: %v\n", err)
 		return
 	}
 
 	var keys []string
 	err = redis.ScanSlice(apikeys, &keys)
 	if err != nil {
-		log.Printf("Error converting api keys to []string: %v\n", err)
+		loglevels.Errorf("Error converting api keys to []string: %v\n", err)
 		return
 	}
 
@@ -332,10 +327,10 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 			if strings.Contains(erro.Error(), "invalid key") {
 				_, erro = redisConn.Do("SREM", userID, key)
 				if erro != nil {
-					log.Printf("Error deleting api key from redis: %v", erro)
+					loglevels.Errorf("Error deleting api key from redis: %v", erro)
 				}
 			} else {
-				log.Printf("Error getting account info: %v\n", erro)
+				loglevels.Errorf("Error getting account info: %v\n", erro)
 				// unexpected error, don't revoke discord roles because of a server error
 				err = erro
 			}
@@ -343,7 +338,7 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 		}
 		defer func() {
 			if erro = res.Body.Close(); erro != nil {
-				log.Printf("Error closing response body: %v\n", err)
+				loglevels.Errorf("Error closing response body: %v\n", err)
 			}
 		}()
 
@@ -353,9 +348,9 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 		erro = jsonParser.Decode(&account)
 		if erro != nil {
 			if res.StatusCode >= 500 {
-				log.Printf("Internal api server error: %v", res.Status)
+				loglevels.Warningf("Internal api server error: %v", res.Status)
 			} else {
-				log.Printf("Error parsing json to account data: %v, user %v\n", erro, userID)
+				loglevels.Errorf("Error parsing json to account data: %v, user %v\n", erro, userID)
 			}
 			// unexpected error, don't revoke discord roles because of a server error
 			err = erro
@@ -402,7 +397,7 @@ func removeWorldsFromUserInGuild(userID, guildID string, member *discordgo.Membe
 				// remove role
 				erro := dg.GuildMemberRoleRemove(guildID, userID, role)
 				if erro != nil {
-					log.Printf("Error removing guild member role: %v\n", erro)
+					loglevels.Errorf("Error removing guild member role: %v\n", erro)
 				}
 			} else {
 				// role is still a world name but since the user already has this role, we don't need to add it to him later
@@ -418,13 +413,13 @@ func removeWorldsFromUserInGuild(userID, guildID string, member *discordgo.Membe
 func updateUserToWorldsInGuild(userID, guildID string, worldNames []string, removeWorlds bool) {
 	member, err := dg.GuildMember(guildID, userID)
 	if err != nil {
-		log.Printf("Error getting guild member: %v\n", err)
+		loglevels.Errorf("Error getting guild member: %v\n", err)
 		return
 	}
 
 	guildRoles, err := dg.GuildRoles(guildID)
 	if err != nil {
-		log.Printf("Error getting guild roles: %v\n", err)
+		loglevels.Errorf("Error getting guild roles: %v\n", err)
 		return
 	}
 
@@ -445,12 +440,12 @@ func updateUserToWorldsInGuild(userID, guildID string, worldNames []string, remo
 		if indexOf(role, guildRoleNames) == -1 {
 			newRole, err := dg.GuildRoleCreate(guildID)
 			if err != nil {
-				log.Printf("Error creating guild role: %v\n", err)
+				loglevels.Errorf("Error creating guild role: %v\n", err)
 				continue
 			}
 			newRole, erro := dg.GuildRoleEdit(guildID, newRole.ID, role, newRole.Color, newRole.Hoist, newRole.Permissions, newRole.Mentionable)
 			if erro != nil {
-				log.Printf("Error editing guild role: %v\n", erro)
+				loglevels.Errorf("Error editing guild role: %v\n", erro)
 			}
 
 			roleID = newRole.ID
@@ -460,7 +455,7 @@ func updateUserToWorldsInGuild(userID, guildID string, worldNames []string, remo
 
 		erro := dg.GuildMemberRoleAdd(guildID, userID, roleID)
 		if erro != nil {
-			log.Printf("Error adding guild role to user: %v\n", erro)
+			loglevels.Errorf("Error adding guild role to user: %v\n", erro)
 		}
 	}
 }

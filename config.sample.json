@@ -8,6 +8,10 @@
     "html": "mainpage.minified",
     "redis": "redis://user:pass@domain.com:6000",
     "oauthredirect": "/oauthcallback",
-    "webhookid": "123",
-    "webhooktoken": "abc"
+    "webhookIdInfo": "123",
+    "webhookTokenInfo": "abc",
+    "webhookIdWarning": "456",
+    "webhookTokenWarning": "def",
+    "webhookIdError": "789",
+    "webhookTokenError": "ghi"
 }

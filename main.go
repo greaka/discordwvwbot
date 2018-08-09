@@ -14,6 +14,8 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/gomodule/redigo/redis"
+	"github.com/greaka/discordwvwbot/loglevels"
+	"github.com/greaka/discordwvwbot/webhooklogger"
 
 	"golang.org/x/oauth2"
 )
@@ -56,15 +58,31 @@ var config struct {
 
 	// RedirectURL holds the relative url where oauth requests get redirected to.
 	// This has to be identical to your settings at the discord bot settings page.
-	RedirectURL string `json:"oauthredirect"`
+	RedirectURL string `json:"oAuthRedirect"`
 
-	// WebhookID writes logs to the given webhook if set up
-	// WebhookID is optional
-	WebhookID string `json:"webhookid"`
+	// WebhookIDInfo writes logs to the given webhook if set up
+	// WebhookIDInfo is optional
+	WebhookIDInfo string `json:"webhookIdInfo"`
 
-	// WebhookToken is the auth token for the webhook
-	// WebhookToken is optional
-	WebhookToken string `json:"webhooktoken"`
+	// WebhookTokenInfo is the auth token for the webhook
+	// WebhookTokenInfo is optional
+	WebhookTokenInfo string `json:"webhookTokenInfo"`
+
+	// WebhookIDWarning writes logs to the given webhook if set up
+	// WebhookIDWarning is optional
+	WebhookIDWarning string `json:"webhookIdWarning"`
+
+	// WebhookTokenWarning is the auth token for the webhook
+	// WebhookTokenWarning is optional
+	WebhookTokenWarning string `json:"webhookTokenWarning"`
+
+	// WebhookIDError writes logs to the given webhook if set up
+	// WebhookIDError is optional
+	WebhookIDError string `json:"webhookIdError"`
+
+	// WebhookTokenError is the auth token for the webhook
+	// WebhookTokenError is optional
+	WebhookTokenError string `json:"webhookTokenError"`
 }
 
 var (
@@ -87,7 +105,7 @@ func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
 	if _, err := fmt.Fprintf(w, mainpage); err != nil {
-		log.Printf("Error handling root request: %v\n", err)
+		loglevels.Errorf("Error handling root request: %v\n", err)
 	}
 }
 
@@ -100,9 +118,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("code"))
 	// err will also be not nil when the user presses Cancel at the oauth request
 	if err != nil {
-		log.Printf("Error getting token: %v\n", err)
+		loglevels.Errorf("Error getting token: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Error getting discord authorization token."); erro != nil {
-			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
@@ -111,24 +129,24 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", discordAPIURL+"/users/@me", nil)
 	if err != nil {
-		log.Printf("Error creating a new request: %v\n", err)
+		loglevels.Errorf("Error creating a new request: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
 	token.SetAuthHeader(req)
 	res, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error getting discord id: %v\n", err)
+		loglevels.Errorf("Error getting discord id: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Error getting discord id. Please contact me."); erro != nil {
-			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
 	defer func() {
 		if err = res.Body.Close(); err != nil {
-			log.Printf("Error closing response body: %v\n", err)
+			loglevels.Errorf("Error closing response body: %v\n", err)
 		}
 	}()
 
@@ -137,9 +155,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	var user discordgo.User
 	err = jsonParser.Decode(&user)
 	if err != nil {
-		log.Printf("Error parsing json to discordgo.User: %v\n", err)
+		loglevels.Errorf("Error parsing json to discordgo.User: %v\n", err)
 		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 		}
 		return
 	}
@@ -150,9 +168,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	case "deletemydata":
 		_, err = redisConn.Do("DEL", user.ID)
 		if err != nil {
-			log.Printf("Error deleting key from redis: %v\n", err)
+			loglevels.Errorf("Error deleting key from redis: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
@@ -166,18 +184,18 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		// SADD will ignore the request if the apikey is already saved from this user
 		_, err = redisConn.Do("SADD", user.ID, state)
 		if err != nil {
-			log.Printf("Error saving key to redis: %v\n", err)
+			loglevels.Errorf("Error saving key to redis: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
-		log.Printf("New user: %v", user.ID)
+		loglevels.Infof("New user: %v", user.ID)
 		updateUserChannel <- user.ID
 	}
 
 	if _, err = fmt.Fprint(w, "Success"); err != nil {
-		log.Printf("Error writing to Responsewriter: %v\n", err)
+		loglevels.Errorf("Error writing to Responsewriter: %v\n", err)
 	}
 }
 
@@ -194,15 +212,15 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 		// check if api key is valid
 		res, err := http.Get(gw2APIURL + "/tokeninfo?access_token=" + key)
 		if err != nil {
-			log.Printf("Error quering tokeninfo: %v\n", err)
+			loglevels.Errorf("Error quering tokeninfo: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
 		defer func() {
 			if err = res.Body.Close(); err != nil {
-				log.Printf("Error closing response body: %v\n", err)
+				loglevels.Errorf("Error closing response body: %v\n", err)
 			}
 		}()
 		// parse tokeninfo
@@ -210,9 +228,9 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 		var token tokenInfo
 		err = jsonParser.Decode(&token)
 		if err != nil {
-			log.Printf("Error parsing json to tokeninfo: %v\n", err)
+			loglevels.Errorf("Error parsing json to tokeninfo: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
@@ -220,7 +238,7 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 		nameInLower := strings.ToLower(token.Name)
 		if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
 			if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
-				log.Printf("Error writing to Responsewriter: %v and %v\n", err, erro)
+				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
 			}
 			return
 		}
@@ -252,46 +270,74 @@ func main() {
 	}
 	defer func() {
 		if err = f.Close(); err != nil {
-			log.Printf("Error closing log file: %v\n", err)
+			loglevels.Errorf("Error closing log file: %v\n", err)
 		}
 	}()
 
 	// set log file
-	log.SetOutput(f)
-	log.Println("Starting up...")
+	loglevels.SetWriter(loglevels.LevelInfo, f)
+	loglevels.SetWriter(loglevels.LevelWarning, f)
+	loglevels.SetWriter(loglevels.LevelError, f)
+	loglevels.Info("Starting up...")
 
 	// load config
 	conf, err := os.Open("config.json")
 	if err != nil {
-		log.Fatalf("Error opening config file: %v\n", err)
+		loglevels.Errorf("Error opening config file: %v\n", err)
+		os.Exit(1)
 	}
 	defer func() {
 		if err = conf.Close(); err != nil {
-			log.Printf("Error closing config file: %v\n", err)
+			loglevels.Errorf("Error closing config file: %v\n", err)
 		}
 	}()
 	jsonParser := json.NewDecoder(conf)
 	if err = jsonParser.Decode(&config); err != nil {
-		log.Fatalf("Error parsing config file: %v\n", err)
+		loglevels.Errorf("Error parsing config file: %v\n", err)
+		os.Exit(1)
 	}
 
-	var webhookLogger WebhookLogger
-	if config.WebhookID != "" && config.WebhookToken != "" {
-		webhookLogger = WebhookLogger{}
-		webhookLogger.SetOutput(config.WebhookID, config.WebhookToken)
-		w := io.MultiWriter(f, webhookLogger)
-		log.SetOutput(w)
+	// connect to the discord bot api
+	dg, err = discordgo.New("Bot " + config.BotToken)
+	if err != nil {
+		loglevels.Errorf("Error connecting to discord: %v\n", err)
+		os.Exit(1)
+	}
+
+	var webhookLoggerInfo webhooklogger.WebhookLogger
+	if config.WebhookIDInfo != "" && config.WebhookTokenInfo != "" {
+		webhookLoggerInfo = webhooklogger.WebhookLogger{}
+		webhookLoggerInfo.SetOutput(dg, config.WebhookIDInfo, config.WebhookTokenInfo)
+		w := io.MultiWriter(f, webhookLoggerInfo)
+		loglevels.SetWriter(loglevels.LevelInfo, w)
+	}
+
+	var webhookLoggerWarning webhooklogger.WebhookLogger
+	if config.WebhookIDWarning != "" && config.WebhookTokenWarning != "" {
+		webhookLoggerWarning = webhooklogger.WebhookLogger{}
+		webhookLoggerWarning.SetOutput(dg, config.WebhookIDWarning, config.WebhookTokenWarning)
+		w := io.MultiWriter(f, webhookLoggerWarning)
+		loglevels.SetWriter(loglevels.LevelWarning, w)
+	}
+
+	var webhookLoggerError webhooklogger.WebhookLogger
+	if config.WebhookIDError != "" && config.WebhookTokenError != "" {
+		webhookLoggerError = webhooklogger.WebhookLogger{}
+		webhookLoggerError.SetOutput(dg, config.WebhookIDError, config.WebhookTokenError)
+		w := io.MultiWriter(f, webhookLoggerError)
+		loglevels.SetWriter(loglevels.LevelError, w)
 	}
 
 	// open redis connection
 	red, err := redis.DialURL(config.RedisConnectionString)
 	if err != nil {
-		log.Fatalf("Error connecting to redis server: %v\n", err)
+		loglevels.Errorf("Error connecting to redis server: %v\n", err)
+		os.Exit(1)
 	}
 	redisConn = red
 	defer func() {
 		if err = red.Close(); err != nil {
-			log.Printf("Error closing redis connection: %v\n", err)
+			loglevels.Errorf("Error closing redis connection: %v\n", err)
 		}
 	}()
 
@@ -312,15 +358,16 @@ func main() {
 	// loading mainpage
 	htmlFile, err := ioutil.ReadFile(config.HTMLPath)
 	if err != nil {
-		log.Fatalf("Error opening html file: %v\n", err)
+		loglevels.Errorf("Error opening html file: %v\n", err)
+		os.Exit(1)
 	}
 	mainpage = string(htmlFile)
 
 	// starting http->https redirect
 	go func() {
-		log.Println("starting up http redirect...")
+		loglevels.Info("starting up http redirect...")
 		if err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS)); err != nil {
-			log.Printf("ListenAndServeError: %v\n", err)
+			loglevels.Warningf("Error on http redirect, ListenAndServeError: %v\n", err)
 		}
 	}()
 
@@ -349,6 +396,7 @@ func main() {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
-	log.Println("starting up https listener...")
-	log.Fatal(srv.ListenAndServeTLS(config.CertificatePath, config.PrivateKeyPath))
+	loglevels.Info("starting up https listener...")
+	loglevels.Error(srv.ListenAndServeTLS(config.CertificatePath, config.PrivateKeyPath))
+	os.Exit(1)
 }
