@@ -1,23 +1,39 @@
+{{define "navlink"}}
+    <br>
+    <a href="/dashboard?id={{.ID}}">
+        <label class="radio-toolbar {{if .Active}}active{{end}}">{{.Name}}</label>
+    </a>
+    <br>
+    <br>
+{{end}}
+
+{{define "chooseServer"}}
+    <input class="radio-toolbar" type="radio" id="server{{.ID}}" name="server" value="{{.ID}}" {{if .Active}}checked{{end}}>
+    <label class="radio-toolbar" for="server{{.ID}}">{{.Name}}</label>
+{{end}}
+
+{{define "chooseAccount"}}
+    <input class="radio-toolbar" type="radio" id="account{{.Name}}" name="account" value="{{.APIKey}}" {{if .Active}}checked{{end}}>
+    <label class="radio-toolbar" for="account{{.Name}}">{{.Name}}</label>
+{{end}}
+
+
 <!DOCTYPE html>
 <html>
-<link type="text/css" rel="stylesheet" href="https://cdn.rawgit.com/greaka/discordwvwbot/500f03ac/templates/master.css">
+<head>
+    <link type="text/css" rel="stylesheet" href="https://cdn.rawgit.com/greaka/discordwvwbot/87eee7fc/templates/master.css">
+</head>
 
 <body>
     <div class="flex">
         <div class="nav">
             <h1>Dashboard</h1>
-            <br>
-            <a href="/dashboard?id=discordserverid">
-                <label class="radio-toolbar">Another Discord Server Name</label>
-            </a>
-            <br>
-            <br>
-            <br>
-            <a href="/dashboard?id=discordserverid">
-                <label class="radio-toolbar active">Discord Server Name</label>
-            </a>
+
+            {{range $index, $element := .DiscordServers}}
+                {{template "navlink" $element}}
+            {{end}}
         </div>
-        <div class="content">
+        <form class="content" action="/submit">
             <br>
             <input type="checkbox" id="check-explain">
             <label for="check-explain">
@@ -47,32 +63,32 @@
             <br>
             <h3>Mode</h3>
 
-            <input class="radio-toolbar" type="radio" id="radioall" name="mode" value="1">
+            <input class="radio-toolbar" type="radio" id="radioall" name="mode" value="1" {{if .Mode eq 1}}checked{{end}}>
             <label class="radio-toolbar" for="radioall">All Servers</label>
 
-            <input class="radio-toolbar" type="radio" id="radioone" name="mode" value="2" checked>
+            <input class="radio-toolbar" type="radio" id="radioone" name="mode" value="2" {{if .Mode eq 2}}checked{{end}}>
             <label class="radio-toolbar" for="radioone">One Server</label>
 
-            <input class="radio-toolbar" type="radio" id="radiouser" name="mode" value="3">
+            <input class="radio-toolbar" type="radio" id="radiouser" name="mode" value="3" {{if .Mode eq 3}}checked{{end}}>
             <label class="radio-toolbar" for="radiouser">User Based</label>
 
 
             <h3>Server Settings</h3>
 
-            <input type="checkbox" id="rename-users">
+            <input type="checkbox" id="rename-users" {{if .RenameUsers}}checked{{end}}>
             <label for="rename-users">Rename users to their Gw2 account names</label>
 
             <div class="mode-based all-servers spacer">
-                <input type="checkbox" id="create-all">
+                <input type="checkbox" id="create-all" {{if .CreateRoles}}checked{{end}}>
                 <label for="create-all">Create all server roles immediately</label>
             </div>
 
             <div class="mode-based not-all-servers spacer">
-                <input type="checkbox" id="allow-linked" checked>
+                <input type="checkbox" id="allow-linked" {{if .AllowLinked}}checked{{end}}>
                 <label for="allow-linked">Allow linked Servers</label>
 
                 <div class="linked spacer">
-                    <input type="checkbox" id="squash">
+                    <input type="checkbox" id="squash" {{if .VerifyOnly}}checked{{end}}>
                     <label for="squash">Only use one
                         <code>Verified</code> role for all users instead of splitting them into
                         <code>server name</code> and
@@ -80,7 +96,7 @@
                     </label>
 
                     <div class="delete-linked spacer">
-                        <input type="checkbox" id="delete-linked">
+                        <input type="checkbox" id="delete-linked" {{if .DeleteLinked}}checked{{end}}>
                         <label for="delete-linked">
                             Remove all users from the
                             <code>Linked Servers</code> role when the linked servers change
@@ -91,16 +107,20 @@
             <div class="mode-based one-server">
                 <h3>Choose the server</h3>
 
-                <input class="radio-toolbar" type="radio" id="server1" name="server" value="1012">
-                <label class="radio-toolbar" for="server1">Darkhaven</label>
+                {{range $index, $element := .Gw2Servers}}
+                    {{template "chooseServer" $element}}
+                {{end}}
             </div>
             <div class="mode-based user-based">
                 <h3>Choose the account</h3>
 
-                <input class="radio-toolbar" type="radio" id="account1" name="account" value="apikey">
-                <label class="radio-toolbar" for="account1">LongName.1234</label>
+                {{range $index, $element := .Accounts}}
+                    {{template "chooseAccount" $element}}
+                {{end}}
             </div>
-        </div>
+
+            <input class="side submit" type="submit" value="Save">
+        </form>
     </div>
 </body>
 
