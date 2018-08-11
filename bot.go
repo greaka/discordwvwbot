@@ -38,27 +38,6 @@ const (
 	delayBetweenUsers time.Duration = 200 * time.Millisecond
 )
 
-// gw2Account holds the data returned by the gw2 api /account endpoint
-type gw2Account struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	World   int      `json:"world"`
-	Guilds  []string `json:"guilds"`
-	Access  []string `json:"access"`
-	Created string   `json:"created"`
-
-	FractalLevel int `json:"fractal_level"`
-	DailyAP      int `json:"daily_ap"`
-	MonthlyAP    int `json:"monthly_ap"`
-	WvWRank      int `json:"wvw_rank"`
-}
-
-// worldStruct holds the world data returned by the gw2 api /worlds endpoint
-type worldStruct struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
 // starting up the bot part
 func startBot() {
 	updateUserChannel = make(chan string)
