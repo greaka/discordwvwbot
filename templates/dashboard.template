@@ -13,7 +13,7 @@
 {{end}}
 
 {{define "chooseAccount"}}
-    <input class="radio-toolbar" type="radio" id="account{{.Name}}" name="account" value="{{.APIKey}}" {{if .Active}}checked{{end}}>
+    <input class="radio-toolbar" type="radio" id="account{{.Name}}" name="account" value="{{.ApiKey}}" {{if .Active}}checked{{end}}>
     <label class="radio-toolbar" for="account{{.Name}}">{{.Name}}</label>
 {{end}}
 

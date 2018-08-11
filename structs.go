@@ -1,33 +1,5 @@
 package main
 
-// gw2Account holds the data returned by the gw2 api /v2/account endpoint
-type gw2Account struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	World   int      `json:"world"`
-	Guilds  []string `json:"guilds"`
-	Access  []string `json:"access"`
-	Created string   `json:"created"`
-
-	FractalLevel int `json:"fractal_level"`
-	DailyAP      int `json:"daily_ap"`
-	MonthlyAP    int `json:"monthly_ap"`
-	WvWRank      int `json:"wvw_rank"`
-}
-
-// worldStruct holds the world data returned by the gw2 api /v2/worlds endpoint
-type worldStruct struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-// tokenInfo is the struct to the gw2 api endpoint /v2/tokeninfo
-type tokenInfo struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Permissions []string `json:"permissions"`
-}
-
 // config is the struct for the bot internal config file
 var config struct {
 	// CertificatePath holds a string to the path of a full cert chain in pem format
@@ -82,3 +54,64 @@ var config struct {
 	// WebhookTokenError is optional
 	WebhookTokenError string `json:"webhookTokenError"`
 }
+
+// gw2Account holds the data returned by the gw2 api /v2/account endpoint
+type gw2Account struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	World   int      `json:"world"`
+	Guilds  []string `json:"guilds"`
+	Access  []string `json:"access"`
+	Created string   `json:"created"`
+
+	FractalLevel int `json:"fractal_level"`
+	DailyAP      int `json:"daily_ap"`
+	MonthlyAP    int `json:"monthly_ap"`
+	WvWRank      int `json:"wvw_rank"`
+}
+
+// worldStruct holds the world data returned by the gw2 api /v2/worlds endpoint
+type worldStruct struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// tokenInfo is the struct to the gw2 api endpoint /v2/tokeninfo
+type tokenInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Permissions []string `json:"permissions"`
+}
+
+type dashboardTemplate struct {
+	DiscordServers []serversTemplate
+	Gw2Servers     []serversTemplate
+	Accounts       []accountTemplate
+	Mode           mode
+	RenameUsers    bool
+	CreateRoles    bool
+	AllowLinked    bool
+	VerifyOnly     bool
+	DeleteLinked   bool
+}
+
+type serversTemplate struct {
+	ID     string
+	Name   string
+	Active bool
+}
+
+type accountTemplate struct {
+	Name   string
+	ApiKey string
+	Active bool
+}
+
+type mode int
+
+const (
+	_ mode = iota
+	AllServers
+	OneServer
+	UserBased
+)
