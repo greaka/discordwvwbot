@@ -143,11 +143,13 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 // updateAllUsers will send update requests for every user and will wait the set duration between requests
 func updateAllUsers() {
 	loglevels.Info("Updating all users...")
+	redisConn := pool.Get()
 	// get every key
 	/* blocks redis database with O(n)
 	 * since this bot will never have millions of updates per second, this is fine
 	 */
 	keys, err := redis.Values(redisConn.Do("KEYS", "*"))
+	closeConnection(redisConn)
 	if err != nil {
 		loglevels.Errorf("Error getting keys * from redis: %v\n", err)
 		return
@@ -185,6 +187,7 @@ func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 // upon connecting to discord or after restoring the connection, the bot will receive this event for every server it is currently added to
 func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 
+	redisConn := pool.Get()
 	// only update when the guild is not already in the database
 	alreadyIn, err := redis.Int(redisConn.Do("SISMEMBER", "guilds", m.ID))
 	if err != nil {
@@ -193,17 +196,22 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	}
 	if alreadyIn == 0 {
 		_, err = redisConn.Do("SADD", "guilds", m.ID)
+		closeConnection(redisConn)
 		if err != nil {
 			loglevels.Errorf("Error adding guild %v to redis guilds: %v\n", m.ID, err)
 			return
 		}
 		updateAllUsers()
+	} else {
+		closeConnection(redisConn)
 	}
 }
 
 // guildDelete listens to the kick or ban event when the bot gets removed
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	redisConn := pool.Get()
 	_, err := redisConn.Do("SREM", "guilds", m.ID)
+	closeConnection(redisConn)
 	if err != nil {
 		loglevels.Errorf("Error removing guild %v from redis guilds: %v\n", m.ID, err)
 	}
@@ -245,8 +253,10 @@ func updateCurrentWorlds() {
 // updateUser updates a single user on all discord servers
 func updateUser(userID string) {
 
+	redisConn := pool.Get()
 	// get discord server list
 	guilds, err := redis.Values(redisConn.Do("SMEMBERS", "guilds"))
+	closeConnection(redisConn)
 	if err != nil {
 		loglevels.Errorf("Error getting guilds from redis: %v\n", err)
 		return
@@ -282,8 +292,10 @@ func updateUser(userID string) {
 // nolint: gocyclo
 func getAccountData(userID string) (name string, worlds []string, err error) {
 
+	redisConn := pool.Get()
 	// get all api keys of the user
 	apikeys, err := redis.Values(redisConn.Do("SMEMBERS", userID))
+	closeConnection(redisConn)
 	if err != nil {
 		loglevels.Errorf("Error getting api keys from redis: %v\n", err)
 		return
@@ -304,7 +316,9 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 		if erro != nil {
 			// if the key got revoked, delete it
 			if strings.Contains(erro.Error(), "invalid key") {
+				redisConn := pool.Get()
 				_, erro = redisConn.Do("SREM", userID, key)
+				closeConnection(redisConn)
 				if erro != nil {
 					loglevels.Errorf("Error deleting api key from redis: %v", erro)
 				}

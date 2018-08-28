@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/gomodule/redigo/redis"
 	"github.com/greaka/discordwvwbot/loglevels"
 	"github.com/greaka/discordwvwbot/webhooklogger"
 
@@ -26,9 +25,6 @@ var (
 
 	// mainpage is the page that gets served at / in string format
 	mainpage string
-
-	// redisConn holds the connection to the redis database
-	redisConn redis.Conn
 )
 
 // main is the entry point and fires up everything
@@ -100,18 +96,7 @@ func main() {
 		loglevels.SetWriter(loglevels.LevelError, w)
 	}
 
-	// open redis connection
-	red, err := redis.DialURL(config.RedisConnectionString)
-	if err != nil {
-		loglevels.Errorf("Error connecting to redis server: %v\n", err)
-		os.Exit(1)
-	}
-	redisConn = red
-	defer func() {
-		if err = red.Close(); err != nil {
-			loglevels.Errorf("Error closing redis connection: %v\n", err)
-		}
-	}()
+	pool = newPool()
 
 	// starting up bot part
 	go startBot()

@@ -81,7 +81,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// delete everything we know about this user
 	case "deletemydata":
+		redisConn := pool.Get()
 		_, err = redisConn.Do("DEL", user.ID)
+		closeConnection(redisConn)
 		if err != nil {
 			loglevels.Errorf("Error deleting key from redis: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
@@ -96,8 +98,10 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// state holds api key, save api key and update user
 	default:
+		redisConn := pool.Get()
 		// SADD will ignore the request if the apikey is already saved from this user
 		_, err = redisConn.Do("SADD", user.ID, state)
+		closeConnection(redisConn)
 		if err != nil {
 			loglevels.Errorf("Error saving key to redis: %v\n", err)
 			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
