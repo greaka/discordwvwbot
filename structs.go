@@ -83,35 +83,39 @@ type tokenInfo struct {
 	Permissions []string `json:"permissions"`
 }
 
+// dashboardTemplate holds all infos about a discord servers bot settings
 type dashboardTemplate struct {
-	DiscordServers []serversTemplate
-	Gw2Servers     []serversTemplate
-	Accounts       []accountTemplate
-	Mode           mode
-	RenameUsers    bool
-	CreateRoles    bool
-	AllowLinked    bool
-	VerifyOnly     bool
-	DeleteLinked   bool
+	DiscordServers []serversTemplate `json:"discordServers"`
+	Gw2Servers     []serversTemplate `json:"gw2Servers"`
+	Accounts       []accountTemplate `json:"accounts"`
+	Mode           mode              `json:"mode"`
+	RenameUsers    bool              `json:"renameUsers"`
+	CreateRoles    bool              `json:"createRoles"`
+	AllowLinked    bool              `json:"allowLinked"`
+	VerifyOnly     bool              `json:"verifyOnly"`
+	DeleteLinked   bool              `json:"deleteLinked"`
 }
 
+// serversTemplate holds infos about gw2 or discord servers
 type serversTemplate struct {
-	ID     string
-	Name   string
-	Active bool
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Active bool   `json:"active"`
 }
 
+// accountTemplate holds infos about gw2 account data
 type accountTemplate struct {
-	Name   string
-	ApiKey string
-	Active bool
+	Name   string `json:"name"`
+	ApiKey string `json:"apiKey"`
+	Active bool   `json:"active"`
 }
 
+// the mode indicates on which mode the discord server is running the bot
 type mode int
 
 const (
 	_ mode = iota
-	AllServers
-	OneServer
-	UserBased
+	allServers
+	oneServer
+	userBased
 )
