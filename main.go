@@ -96,7 +96,8 @@ func main() {
 		loglevels.SetWriter(loglevels.LevelError, w)
 	}
 
-	pool = newPool()
+	usersDatabase = newPool(dbTypeUsers)
+	guildsDatabase = newPool(dbTypeGuilds)
 
 	// starting up bot part
 	go startBot()

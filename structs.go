@@ -106,7 +106,7 @@ type serversTemplate struct {
 // accountTemplate holds infos about gw2 account data
 type accountTemplate struct {
 	Name   string `json:"name"`
-	ApiKey string `json:"apiKey"`
+	APIKey string `json:"apiKey"`
 	Active bool   `json:"active"`
 }
 

@@ -143,7 +143,7 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 // updateAllUsers will send update requests for every user and will wait the set duration between requests
 func updateAllUsers() {
 	loglevels.Info("Updating all users...")
-	redisConn := pool.Get()
+	redisConn := usersDatabase.Get()
 	// get every key
 	/* blocks redis database with O(n)
 	 * since this bot will never have millions of updates per second, this is fine
@@ -187,7 +187,7 @@ func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 // upon connecting to discord or after restoring the connection, the bot will receive this event for every server it is currently added to
 func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 
-	redisConn := pool.Get()
+	redisConn := guildsDatabase.Get()
 	// only update when the guild is not already in the database
 	alreadyIn, err := redis.Int(redisConn.Do("SISMEMBER", "guilds", m.ID))
 	if err != nil {
@@ -209,7 +209,7 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 
 // guildDelete listens to the kick or ban event when the bot gets removed
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
-	redisConn := pool.Get()
+	redisConn := guildsDatabase.Get()
 	_, err := redisConn.Do("SREM", "guilds", m.ID)
 	closeConnection(redisConn)
 	if err != nil {
@@ -253,7 +253,7 @@ func updateCurrentWorlds() {
 // updateUser updates a single user on all discord servers
 func updateUser(userID string) {
 
-	redisConn := pool.Get()
+	redisConn := guildsDatabase.Get()
 	// get discord server list
 	guilds, err := redis.Values(redisConn.Do("SMEMBERS", "guilds"))
 	closeConnection(redisConn)
@@ -292,7 +292,7 @@ func updateUser(userID string) {
 // nolint: gocyclo
 func getAccountData(userID string) (name string, worlds []string, err error) {
 
-	redisConn := pool.Get()
+	redisConn := usersDatabase.Get()
 	// get all api keys of the user
 	apikeys, err := redis.Values(redisConn.Do("SMEMBERS", userID))
 	closeConnection(redisConn)
@@ -316,7 +316,7 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 		if erro != nil {
 			// if the key got revoked, delete it
 			if strings.Contains(erro.Error(), "invalid key") {
-				redisConn := pool.Get()
+				redisConn := usersDatabase.Get()
 				_, erro = redisConn.Do("SREM", userID, key)
 				closeConnection(redisConn)
 				if erro != nil {
