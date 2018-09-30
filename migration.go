@@ -40,7 +40,10 @@ func migrateRedis() (err error) {
 
 	vc = versionPool.Get()
 
-	_, err = vc.Do("SET", "version "+string(version))
+	_, err = vc.Do("SET", "version", version)
+	if err != nil {
+		loglevels.Errorf("Error setting version while migrating: %v\n", err)
+	}
 
 	return
 }
@@ -104,7 +107,7 @@ func dumpRestoreAndDEL(source, target *redis.Pool, key string) (err error) {
 		loglevels.Errorf("Error getting %v dump from db while trying to migrate: %v\n", key, err)
 		return
 	}
-	_, err = redis.String(tc.Do("RESTORE", key+" 0 \""+dump+"\""))
+	_, err = redis.String(tc.Do("RESTORE", key, 0, dump))
 	if err != nil {
 		loglevels.Errorf("Error restoring %v dump to db while trying to migrate: %v\n", key, err)
 		return
