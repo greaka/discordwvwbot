@@ -106,7 +106,7 @@ func dumpRestoreAndDEL(source, target *redis.Pool, key string) (err error) {
 	}
 	_, err = redis.String(tc.Do("RESTORE", key+" 0 "+dump))
 	if err != nil {
-		loglevels.Errorf("Error restoring %v dump to db while trying to migrate: %v\n", key, err)
+		loglevels.Errorf("Error restoring %v dump to db while trying to migrate: %v COMMAND: %v\n", key, err, key+" 0 "+dump)
 		return
 	}
 
