@@ -96,6 +96,10 @@ func main() {
 		loglevels.SetWriter(loglevels.LevelError, w)
 	}
 
+	if err = migrateRedis(); err != nil {
+		os.Exit(1)
+	}
+
 	usersDatabase = newPool(dbTypeUsers)
 	guildsDatabase = newPool(dbTypeGuilds)
 

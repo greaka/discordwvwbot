@@ -32,7 +32,7 @@ func newPool(db redisDatabase) *redis.Pool {
 				loglevels.Errorf("Error connecting to redis server: %v\n", err)
 			}
 			if _, err := red.Do("SELECT", db); err != nil {
-				red.Close()
+				red.Close() // nolint: errcheck
 				loglevels.Errorf("Error connecting to redis database %v: %v\n", db, err)
 			}
 			return

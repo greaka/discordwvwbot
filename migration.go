@@ -1,12 +1,11 @@
 package main
 
 import (
-	"os"
-
 	"github.com/gomodule/redigo/redis"
 	"github.com/greaka/discordwvwbot/loglevels"
 )
 
+// nolint: ineffassign
 func migrateRedis() (err error) {
 	versionPool := newPool(dbTypeVersion)
 	guildsPool := newPool(dbTypeGuilds)
@@ -19,10 +18,10 @@ func migrateRedis() (err error) {
 	if err != nil {
 		loglevels.Errorf("Error checking for existing version in redis version db while trying to migrate: %v\n", err)
 		loglevels.Warning("Exiting to prevent damage on the database. Check the error log!")
-		os.Exit(1)
+		return
 	}
 	if !versionExists {
-		guildsExists, err := redis.Bool(vc.Do("EXISTS", "guilds"))
+		guildsExists, err := redis.Bool(vc.Do("EXISTS", "guilds")) // nolint: vetshadow
 		if err != nil {
 			loglevels.Errorf("Error checking for existing guilds in redis version db while trying to migrate: %v\n", err)
 			return err
