@@ -341,7 +341,7 @@ func getAccountData(userID string) (name string, worlds []string, err error) {
 		erro = jsonParser.Decode(&account)
 		if erro != nil {
 			if res.StatusCode >= 500 {
-				loglevels.Warningf("Internal api server error: %v", res.Status)
+				loglevels.Warningf("Internal api server error: %v\n", res.Status)
 			} else {
 				loglevels.Errorf("Error parsing json to account data: %v, user %v\n", erro, userID)
 			}
