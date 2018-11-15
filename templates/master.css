@@ -207,6 +207,11 @@ li {
     background-color: red;
 }
 
+.inline {
+    display: inline-block;
+    height: 45px;
+}
+
 .hide {
     display:none;
 }
