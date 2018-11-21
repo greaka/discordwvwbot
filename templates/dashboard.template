@@ -39,7 +39,7 @@
         </div>
         <form class="content" method="post" action="/submit">
             <input type="text" id="state" name="state" class="hidden" value="{{(index .DiscordServers 0).State}}">
-            <input type="text" id="guild" name="guild" class="hidden" value="{{(index .DiscordServers 0).ID}}">
+            <input type="text" id="guild" name="guild" class="hidden" value="{{range $index, $element := .DiscordServers}}{{if $element.Active}}{{$element.ID}}{{end}}{{end}}">
             <br>
             <input type="checkbox" id="check-explain">
             <label for="check-explain">
