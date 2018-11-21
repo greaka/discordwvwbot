@@ -162,10 +162,8 @@ label h3 {
 #squash:checked~.delete-linked,
 #squash:checked~.delete-linked * {
     opacity: 0;
-    margin: 0 auto;
-    padding-top: 0;
-    padding-bottom: 0;
-    max-height: 0;
+    position: absolute;
+    left: -500px;
 }
 
 .radio-toolbar {
@@ -205,6 +203,11 @@ li {
 .warning {
     color:black;
     background-color: red;
+}
+
+.inline {
+    display: inline-block;
+    height: 45px;
 }
 
 .submit {
