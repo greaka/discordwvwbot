@@ -30,12 +30,18 @@ func migrateRedis() (err error) {
 			version = 1
 		}
 	} else {
-		version, _ = redis.Int(vc.Do("GET", "version"))
+		version, err = redis.Int(vc.Do("GET", "version"))
+		if err != nil {
+			return
+		}
 	}
 	closeConnection(vc)
 
 	if version == 1 {
 		version, err = migrateRedisFrom1To2(usersPool, guildsPool, versionPool)
+	}
+	if version == 2 {
+		version, err = migrateRedisFrom2To3(guildsPool)
 	}
 
 	vc = versionPool.Get()
@@ -93,6 +99,40 @@ func migrateRedisFrom1To2(up, gp, vp *redis.Pool) (version int, err error) {
 
 	version = 2
 
+	return
+}
+
+func migrateRedisFrom2To3(gp *redis.Pool) (version int, err error) {
+	version = 2
+	gc := gp.Get()
+	defer closeConnection(gc)
+
+	values, err := redis.Values(gc.Do("SMEMBERS", "guilds"))
+	if err != nil {
+		loglevels.Errorf("Error getting guilds while migrating from 2 to 3: %v\n", err)
+		return
+	}
+
+	var guilds []string
+	err = redis.ScanSlice(values, &guilds)
+	if err != nil {
+		loglevels.Errorf("Error slicing guilds while migrating from 2 to 3: %v\n", err)
+		return
+	}
+
+	for _, guild := range guilds {
+		if err = saveNewGuild(gc, guild); err != nil {
+			return
+		}
+	}
+
+	_, err = gc.Do("DEL", "guilds")
+	if err != nil {
+		loglevels.Errorf("Error deleting guilds while trying to migrate from 2 to 3: %v\n", err)
+		return
+	}
+
+	version = 3
 	return
 }
 

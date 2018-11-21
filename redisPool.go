@@ -12,6 +12,10 @@ var (
 	usersDatabase *redis.Pool
 	// guildsDatabase holds connections to the redis server
 	guildsDatabase *redis.Pool
+	// sessionsDatabase holds connections to the redis server
+	sessionsDatabase *redis.Pool
+	// cacheDatabase holds connections to the redis server
+	cacheDatabase *redis.Pool
 )
 
 type redisDatabase int
@@ -21,7 +25,16 @@ const (
 	dbTypeVersion redisDatabase = iota
 	dbTypeUsers
 	dbTypeGuilds
+	dbTypeSessions
+	dbTypeCache
 )
+
+func initializeRedisPools() {
+	usersDatabase = newPool(dbTypeUsers)
+	guildsDatabase = newPool(dbTypeGuilds)
+	sessionsDatabase = newPool(dbTypeSessions)
+	cacheDatabase = newPool(dbTypeCache)
+}
 
 // newPool initializes a new pool
 func newPool(db redisDatabase) *redis.Pool {
@@ -32,7 +45,7 @@ func newPool(db redisDatabase) *redis.Pool {
 				loglevels.Errorf("Error connecting to redis server: %v\n", err)
 			}
 			if _, err := red.Do("SELECT", db); err != nil {
-				red.Close() // nolint: errcheck
+				red.Close() // nolint: errcheck, gosec
 				loglevels.Errorf("Error connecting to redis database %v: %v\n", db, err)
 			}
 			return

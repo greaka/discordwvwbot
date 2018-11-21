@@ -1,5 +1,9 @@
 package main
 
+import (
+	"time"
+)
+
 // config is the struct for the bot internal config file
 var config struct {
 	// CertificatePath holds a string to the path of a full cert chain in pem format
@@ -22,6 +26,9 @@ var config struct {
 
 	// HTMLPath holds the path to the mainpage to serve
 	HTMLPath string `json:"html"`
+
+	// TemplatePath holds the path to the dashboard template to serve
+	TemplatePath string `json:"dashboard"`
 
 	// RedisConnectionString holds the redis database connection string to authenticate with
 	RedisConnectionString string `json:"redis"`
@@ -76,6 +83,32 @@ type worldStruct struct {
 	Name string `json:"name"`
 }
 
+type linkInfo struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Linked []int  `json:"linked"`
+}
+
+type matchOverview struct {
+	ID string `json:"id"`
+
+	// nolint: megacheck
+	Worlds struct {
+		Red   int `json:"red"`
+		Blue  int `json:"blue"`
+		Green int `json:"green"`
+	} `json:"worlds"`
+
+	AllWorlds struct {
+		Red   []int `json:"red"`
+		Blue  []int `json:"blue"`
+		Green []int `json:"green"`
+	} `json:"all_worlds"`
+
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+}
+
 // tokenInfo is the struct to the gw2 api endpoint /v2/tokeninfo
 type tokenInfo struct {
 	ID          string   `json:"id"`
@@ -83,7 +116,27 @@ type tokenInfo struct {
 	Permissions []string `json:"permissions"`
 }
 
-// dashboardTemplate holds all infos about a discord servers bot settings
+// guildOptions holds all infos about a discord servers bot settings
+type guildOptions struct {
+	// gw2 server id to verify for with mode server based
+	Gw2ServerID int `json:"gw2Server"`
+	// gw2 account api key to verify with for mode user based
+	Gw2AccountKey string `json:"apiKey"`
+	// mode to select
+	Mode mode `json:"mode"`
+	// rename users to their ingame account names
+	RenameUsers bool `json:"renameUsers"`
+	// create all roles even when unused in allservers based mode
+	CreateRoles bool `json:"createRoles"`
+	// allow linked servers to be verified
+	AllowLinked bool `json:"allowLinked"`
+	// linked servers get verified role instead of linked servers role
+	VerifyOnly bool `json:"verifyOnly"`
+	// kick all users from linked servers role when linking changes
+	DeleteLinked bool `json:"deleteLinked"`
+}
+
+// dashboardTemplate holds all infos about a discord servers bot settings and options
 type dashboardTemplate struct {
 	DiscordServers []serversTemplate `json:"discordServers"`
 	Gw2Servers     []serversTemplate `json:"gw2Servers"`
@@ -101,6 +154,7 @@ type serversTemplate struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Active bool   `json:"active"`
+	State  string `json:"state"`
 }
 
 // accountTemplate holds infos about gw2 account data
@@ -119,3 +173,24 @@ const (
 	oneServer
 	userBased
 )
+
+type authReason int
+
+const (
+	_ authReason = iota
+	addUser
+	syncUser
+	deleteKeys
+	useDashboard
+)
+
+type oauthState struct {
+	Reason authReason `json:"reason"`
+	Data   string     `json:"data"`
+}
+
+// TODO:
+//   - error handling on update current worlds
+//   - update user to worlds in guild, indexof duplicate
+//   - delete linked / saving worlds
+//   - creating roles / saving role ids

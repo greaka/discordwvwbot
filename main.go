@@ -3,15 +3,17 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/greaka/discordwvwbot/webhooklogger"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/greaka/discordwvwbot/loglevels"
-	"github.com/greaka/discordwvwbot/webhooklogger"
 
 	"golang.org/x/oauth2"
 )
@@ -25,11 +27,15 @@ var (
 
 	// mainpage is the page that gets served at / in string format
 	mainpage string
+
+	// dbTemplate is the template to render the dashboard
+	dbTemplate *template.Template
 )
 
 // main is the entry point and fires up everything
 // nolint: gocyclo
 func main() {
+
 	// open log file to write to it
 	f, err := os.OpenFile("botlog", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
@@ -42,9 +48,9 @@ func main() {
 	}()
 
 	// set log file
-	loglevels.SetWriter(loglevels.LevelInfo, f)
-	loglevels.SetWriter(loglevels.LevelWarning, f)
-	loglevels.SetWriter(loglevels.LevelError, f)
+	loglevels.SetWriter(loglevels.LevelInfo, os.Stdout)
+	loglevels.SetWriter(loglevels.LevelWarning, os.Stdout)
+	loglevels.SetWriter(loglevels.LevelError, os.Stderr)
 	loglevels.Info("Starting up...")
 
 	// load config
@@ -100,10 +106,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	usersDatabase = newPool(dbTypeUsers)
-	guildsDatabase = newPool(dbTypeGuilds)
+	initializeRedisPools()
 
-	// starting up bot part
+	// starting up the bot part
 	go startBot()
 
 	oauthConfig = &oauth2.Config{
@@ -114,7 +119,7 @@ func main() {
 			TokenURL: discordAPIURL + "/oauth2/token",
 		},
 		RedirectURL: config.HostURL + config.RedirectURL,
-		Scopes:      []string{"identify"},
+		Scopes:      []string{"identify", "guilds"},
 	}
 
 	// loading mainpage
@@ -124,6 +129,14 @@ func main() {
 		os.Exit(1)
 	}
 	mainpage = string(htmlFile)
+
+	// loading dashboard template
+	htmlFile, err = ioutil.ReadFile(config.TemplatePath)
+	if err != nil {
+		loglevels.Errorf("Error opening template file: %v\n", err)
+		os.Exit(1)
+	}
+	dbTemplate, err = template.New("dashboard").Parse(string(htmlFile))
 
 	// starting http->https redirect
 	go func() {
@@ -140,6 +153,8 @@ func main() {
 	mux.HandleFunc("/login", handleAuthRequest)
 	mux.HandleFunc(config.RedirectURL, handleAuthCallback)
 	mux.HandleFunc("/invite", handleInvite)
+	mux.HandleFunc("/dashboard", handleDashboard)
+	mux.HandleFunc("/submit", handleSubmitDashboard)
 	cfg := &tls.Config{
 		MinVersion:               tls.VersionTLS12,
 		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},

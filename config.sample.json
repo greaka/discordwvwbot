@@ -6,6 +6,7 @@
     "discordOAuthSecret": "baz",
     "domain": "https://example.com",
     "html": "mainpage.minified",
+    "dashboard": "templates/dashboard.template",
     "redis": "redis://user:pass@domain.com:6000",
     "oauthredirect": "/oauthcallback",
     "webhookIdInfo": "123",

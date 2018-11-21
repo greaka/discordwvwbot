@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <link type="text/css" rel="stylesheet" href="https://cdn.rawgit.com/greaka/discordwvwbot/87eee7fc/templates/master.css">
+    <link type="text/css" rel="stylesheet" href="https://cdn.rawgit.com/greaka/discordwvwbot/d38cb2e/templates/master.css">
     <style>
         body {
             max-width: 700px;
@@ -21,24 +21,30 @@
     <h2>WvW Bot</h2>
 
     <h3>What is it for?</h3>
-    <p>This bot will assign you roles on Discord based on your WvW world. For this to work, you will need to provide an API-Key
+    <p>This bot will assign you roles on Discord based on your WvW world. For this to work, you will need to provide an
+        API-Key
         from
-        <a href="https://account.guildwars2.com/applications" target="_blank">your account page</a>. The API-Key only needs account permissions and has to include
+        <a href="https://account.guildwars2.com/applications" target="_blank">your account page</a>. The API-Key only
+        needs account permissions and has to include
         <code>wvwbot</code> in the name.</p>
     <h3>And behind the scenes?</h3>
-    <p>This bot will save your Discord ID and your API-Key. If you want to add another API-Key, simply place your new key in
+    <p>This bot will save your Discord ID and your API-Key. If you want to add another API-Key, simply place your new
+        key in
         the box below. If you want to delete everything the bot knows about you, press
         <code>Delete all my data</code>.</p>
     <h3>I transfered to another world, what now?</h3>
-    <p>Your roles get updated whenever you enter a new API-Key and every 24h. If you just changed your world and want your server
+    <p>Your roles get updated whenever you enter a new API-Key and every 24h. If you just changed your world and want
+        your server
         roles updated, either wait up to 24h or press
         <code>Sync now</code> below. After, your roles will be updated.</p>
     <h3>Can I have it on my own server?</h3>
     <p>If you want to invite this bot to your own Discord server, click
-        <a href="/invite" target="_blank">here</a>. Only give it the permission to manage nicknames if you wish that the usernames will be overwritten with
+        <a href="/invite" target="_blank">here</a>. Only give it the permission to manage nicknames if you wish that
+        the usernames will be overwritten with
         their account names.</p>
     <h3>Login with discord? Are you trying to steal my password?</h3>
-    <p>Don't worry. When you click on this button, you will see exactly what the bot will be able to see if you choose to let
+    <p>Don't worry. When you click on this button, you will see exactly what the bot will be able to see if you choose
+        to let
         it. The bot will only ask for your ID so it knows who you are.</p>
     <br>
     <form action="/login">
@@ -51,13 +57,13 @@
     </form>
     <br>
     <form action="/login">
-        <input type="text" name="key" value="syncnow" class="hide">
+        <input type="text" name="key" value="syncnow" class="hidden">
         <input type="submit" value="Sync now">
     </form>
     <br>
     <br>
     <form action="/login">
-        <input type="text" name="key" value="deletemydata" class="hide">
+        <input type="text" name="key" value="deletemydata" class="hidden">
         <input type="submit" value="Delete all my data" class="warning">
     </form>
 

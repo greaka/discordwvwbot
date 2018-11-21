@@ -1,10 +1,13 @@
 package main
 
 import (
-	"context"
+	b64 "encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -19,9 +22,204 @@ func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 // handleRootRequest serves the mainpage
 func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
-	if _, err := fmt.Fprintf(w, mainpage); err != nil {
+	if _, err := fmt.Fprint(w, mainpage); err != nil {
 		loglevels.Errorf("Error handling root request: %v\n", err)
 	}
+}
+
+// nolint: gocyclo
+func handleDashboard(w http.ResponseWriter, r *http.Request) {
+	addHeaders(w, r)
+	state := r.FormValue("state")
+
+	if state == "" {
+		http.Redirect(w, r, "/login?key=dashboard", http.StatusTemporaryRedirect)
+		return
+	}
+
+	stateString, err := b64.URLEncoding.DecodeString(state)
+	if err != nil {
+		loglevels.Errorf("Error decoding base64 %v: %v\n", state, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
+		return
+	}
+
+	var oauthReason oauthState
+	err = json.Unmarshal(stateString, &oauthReason)
+	if err != nil {
+		loglevels.Errorf("Error deserializing json %v: %v\n", stateString, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
+		return
+	}
+
+	userid, err := checkSession(oauthReason.Data)
+	if err != nil {
+		loglevels.Warningf("Invalid session: %v\n", err)
+		writeToResponse(w, "Session expired.")
+		return
+	}
+
+	guild := r.FormValue("guild")
+	guilds, err := getDiscordServers(userid) // nolint: vetshadow
+	if err != nil {
+		loglevels.Errorf("Error getting discord servers for user %v: %v\n", userid, err)
+		writeToResponse(w, "The Discord API is currently down. Check back in a few minutes.")
+		return
+	}
+	if guild == "" {
+		if len(guilds) < 1 {
+			writeToResponse(w, "You share no discord server with this bot.")
+			return
+		}
+		guild = guilds[0].ID
+	} else {
+		if !checkUserIsMember(guild, guilds) {
+			loglevels.Warningf("User %v tried to access dashboard setting from guild %v while missing the needed permissions.\n", userid, guild)
+			writeToResponse(w, "You are missing permissions to manage roles on this server.")
+			return
+		}
+	}
+
+	dashboard, err := getDashboardTemplate(guild, userid, state)
+	if err != nil {
+		loglevels.Errorf("Error getting dashboard template for user %v and guild %v: %v\n", userid, guild, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
+		return
+	}
+
+	err = dbTemplate.Execute(w, dashboard)
+	if err != nil {
+		loglevels.Errorf("Error executing dashboard template for user %v and guild %v: %v\n", userid, guild, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
+		return
+	}
+}
+
+// nolint: gocyclo
+func handleSubmitDashboard(w http.ResponseWriter, r *http.Request) {
+	addHeaders(w, r)
+
+	state := r.FormValue("state")
+	stateString, err := b64.URLEncoding.DecodeString(state)
+	if err != nil {
+		loglevels.Errorf("Error decoding base64 %v: %v\n", state, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
+		return
+	}
+
+	var oauthReason oauthState
+	err = json.Unmarshal(stateString, &oauthReason)
+	if err != nil {
+		loglevels.Errorf("Error deserializing json %v: %v\n", stateString, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
+		return
+	}
+
+	user, err := checkSession(oauthReason.Data)
+	if err != nil {
+		loglevels.Warningf("Invalid session: %v\n", err)
+		writeToResponse(w, "Session expired.")
+		return
+	}
+
+	servers, err := getDiscordServers(user)
+	if err != nil {
+		writeToResponse(w, "Something went wrong. Try again later or contact me.")
+		return
+	}
+
+	isMember := checkUserIsMember(r.FormValue("guild"), servers)
+	if isMember {
+		err = processSubmitData(r)
+		if err != nil {
+			writeToResponse(w, "%v", err)
+		} else {
+			writeToResponse(w, "Success")
+		}
+		return
+	}
+
+	writeToResponse(w, "You are missing permissions to manage roles. Your settings were not saved.")
+}
+
+func checkUserIsMember(id string, servers []discordgo.UserGuild) (isMember bool) {
+	for _, server := range servers {
+		if server.ID == id {
+			if server.Permissions&discordgo.PermissionManageRoles == discordgo.PermissionManageRoles {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// nolint: gocyclo
+func processSubmitData(r *http.Request) (err error) {
+	options := &guildOptions{
+		RenameUsers:  false,
+		CreateRoles:  false,
+		AllowLinked:  false,
+		VerifyOnly:   false,
+		DeleteLinked: false,
+	}
+	mod, err := strconv.Atoi(r.FormValue("mode"))
+	if err != nil {
+		loglevels.Errorf("Error converting mode from dashboard submit: %v\n", err)
+		return
+	}
+	options.Mode = mode(mod)
+
+	if r.FormValue("rename-users") == "on" {
+		options.RenameUsers = true
+	}
+
+	if r.FormValue("create-all") == "on" {
+		options.CreateRoles = true
+	}
+
+	if r.FormValue("allow-linked") == "on" {
+		options.AllowLinked = true
+	}
+
+	if r.FormValue("squash") == "on" {
+		options.VerifyOnly = true
+	}
+
+	if r.FormValue("delete-linked") == "on" {
+		options.DeleteLinked = true
+	}
+
+	options.Gw2AccountKey = r.FormValue("account")
+	if options.Mode == userBased {
+		if options.Gw2AccountKey == "" {
+			err = errors.New("you have to choose an account for user based mode to work")
+			return
+		}
+	}
+
+	serverString := r.FormValue("server")
+	if serverString != "" {
+		var serv int
+		serv, err = strconv.Atoi(serverString)
+		if err != nil {
+			loglevels.Errorf("Error converting server id %v from dashboard submit: %v\n", serverString, err)
+			return
+		}
+
+		options.Gw2ServerID = serv
+	} else {
+		if options.Mode == oneServer {
+			err = errors.New("you have to choose a server for server based mode to work")
+			return
+		}
+	}
+
+	// r.FormValue("guild") is not empty because of the permissions check before
+	err = saveGuildSettings(r.FormValue("guild"), options)
+	if err != nil {
+		err = errors.New("unexpected error while saving your settings")
+	}
+	return
 }
 
 // handleAuthCallback is listening to returning oauth requests to discord
@@ -30,91 +228,89 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
 	state := r.FormValue("state")
 	// request oauth access with the issue data sent by discord
-	token, err := oauthConfig.Exchange(context.Background(), r.FormValue("code"))
-	// err will also be not nil when the user presses Cancel at the oauth request
+	token, err := getOAuthToken(r, w)
 	if err != nil {
-		loglevels.Errorf("Error getting token: %v\n", err)
-		if _, erro := fmt.Fprint(w, "Error getting discord authorization token."); erro != nil {
-			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-		}
 		return
 	}
 
 	// get discord id
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", discordAPIURL+"/users/@me", nil)
+	user, err := setDiscordUser(token.AccessToken)
 	if err != nil {
-		loglevels.Errorf("Error creating a new request: %v\n", err)
-		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-		}
+		writeToResponse(w, "Internal Error getting your discord ID. If this error persists, then please contact me.")
 		return
 	}
-	token.SetAuthHeader(req)
-	res, err := client.Do(req)
+	/*
+		stateString, err := b64.URLEncoding.DecodeString(state)
+		if err != nil {
+			loglevels.Errorf("Error decoding base64 %v: %v\n", state, err)
+			writeToResponse(w, "Internal error, please try again or contact me.")
+			return
+		}
+	*/
+	var oauthReason oauthState
+	err = json.Unmarshal([]byte(state), &oauthReason)
 	if err != nil {
-		loglevels.Errorf("Error getting discord id: %v\n", err)
-		if _, erro := fmt.Fprint(w, "Error getting discord id. Please contact me."); erro != nil {
-			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-		}
-		return
-	}
-	defer func() {
-		if err = res.Body.Close(); err != nil {
-			loglevels.Errorf("Error closing response body: %v\n", err)
-		}
-	}()
-
-	// parse user json to discordgo.User
-	jsonParser := json.NewDecoder(res.Body)
-	var user discordgo.User
-	err = jsonParser.Decode(&user)
-	if err != nil {
-		loglevels.Errorf("Error parsing json to discordgo.User: %v\n", err)
-		if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-			loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-		}
+		loglevels.Errorf("Error deserializing json %v: %v\n", state, err)
+		writeToResponse(w, "Internal error, please try again or contact me.")
 		return
 	}
 
-	switch state {
+	switch oauthReason.Reason {
 
 	// delete everything we know about this user
-	case "deletemydata":
+	case deleteKeys:
 		redisConn := usersDatabase.Get()
+		defer closeConnection(redisConn)
 		_, err = redisConn.Do("DEL", user.ID)
-		closeConnection(redisConn)
 		if err != nil {
 			loglevels.Errorf("Error deleting key from redis: %v\n", err)
-			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-			}
+			writeToResponse(w, "Internal error, please try again or contact me.")
+			return
+		}
+		_, err = redisConn.Do("SADD", user.ID, "A")
+		if err != nil {
+			loglevels.Errorf("Error adding temporary key to redis: %v\n", err)
+			writeToResponse(w, "Internal error, please try again or contact me.")
 			return
 		}
 
 	// sync the user on all discord servers
-	case "syncnow":
+	case syncUser:
 		updateUserChannel <- user.ID
 
-	// state holds api key, save api key and update user
-	default:
+	// save api key and update user
+	case addUser:
 		redisConn := usersDatabase.Get()
 		// SADD will ignore the request if the apikey is already saved from this user
-		_, err = redisConn.Do("SADD", user.ID, state)
+		_, err = redisConn.Do("SADD", user.ID, oauthReason.Data)
 		closeConnection(redisConn)
 		if err != nil {
 			loglevels.Errorf("Error saving key to redis: %v\n", err)
-			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-			}
+			writeToResponse(w, "Internal error, please try again or contact me.")
 			return
 		}
 		loglevels.Infof("New user: %v", user.ID)
 		updateUserChannel <- user.ID
+	case useDashboard:
+		oauthReason.Data, err = newSession(user.ID)
+		if err != nil {
+			writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
+			return
+		}
+		stateBytes, err := json.Marshal(oauthReason) // nolint: vetshadow
+		if err != nil {
+			loglevels.Errorf("Error stringifying state: %v", oauthReason)
+			writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
+			return
+		}
+		http.Redirect(w, r, "https://"+r.Host+"/dashboard?state="+b64.URLEncoding.EncodeToString(stateBytes), http.StatusTemporaryRedirect)
+	default:
+		loglevels.Errorf("malformed state: %v", oauthReason)
 	}
 
 	if _, err = fmt.Fprint(w, "Success"); err != nil {
 		loglevels.Errorf("Error writing to Responsewriter: %v\n", err)
+		writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
 	}
 }
 
@@ -123,49 +319,45 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
 	key := r.FormValue("key")
+
+	state := oauthState{}
+
 	// filter if request contains special keywords
 	switch key {
 	case "deletemydata":
+		state.Reason = deleteKeys
 	case "syncnow":
+		state.Reason = syncUser
+	case "dashboard":
+		state.Reason = useDashboard
 	default:
+		state.Reason = addUser
+		state.Data = key
 		// check if api key is valid
-		res, err := http.Get(gw2APIURL + "/tokeninfo?access_token=" + key)
+		token, err := getTokenInfo(key)
 		if err != nil {
-			loglevels.Errorf("Error quering tokeninfo: %v\n", err)
-			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-			}
+			writeToResponse(w, "Internal error, please try again or contact me.")
 			return
 		}
-		defer func() {
-			if err = res.Body.Close(); err != nil {
-				loglevels.Errorf("Error closing response body: %v\n", err)
-			}
-		}()
-		// parse tokeninfo
-		jsonParser := json.NewDecoder(res.Body)
-		var token tokenInfo
-		err = jsonParser.Decode(&token)
-		if err != nil {
-			loglevels.Errorf("Error parsing json to tokeninfo: %v\n", err)
-			if _, erro := fmt.Fprint(w, "Internal error, please try again or contact me."); erro != nil {
-				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-			}
-			return
-		}
+
 		// check if api key contains wvwbot
 		nameInLower := strings.ToLower(token.Name)
 		if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
-			if _, erro := fmt.Fprintf(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name); erro != nil {
-				loglevels.Errorf("Error writing to Responsewriter: %v and %v\n", err, erro)
-			}
+			writeToResponse(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name)
 			return
 		}
 	}
 
+	stateString, err := json.Marshal(state)
+	if err != nil {
+		loglevels.Errorf("Error stringifying state: %v", state)
+		writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
+		return
+	}
+
 	// redirect to discord login
 	// we can use the key as state here because we are not vulnerable to csrf (change my mind)
-	http.Redirect(w, r, oauthConfig.AuthCodeURL(key), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, oauthConfig.AuthCodeURL(string(stateString)), http.StatusTemporaryRedirect)
 }
 
 // handleInvite responds with a discord URL to invite this bot to a discord server
@@ -177,4 +369,10 @@ func handleInvite(w http.ResponseWriter, r *http.Request) {
 // addHeaders adds the standard headers to the http.ResponseWriter
 func addHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+}
+
+func writeToResponse(w io.Writer, message string, a ...interface{}) {
+	if _, erro := fmt.Fprintf(w, message, a...); erro != nil {
+		loglevels.Errorf("Error writing to Responsewriter: %v\n", erro)
+	}
 }
