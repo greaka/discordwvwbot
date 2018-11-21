@@ -303,7 +303,6 @@ func getAccountData(userID string) (name string, worlds []int, err error) {
 
 		// add world to users worlds
 		worlds = append(worlds, account.World)
-		loglevels.Infof("%v: %v", account.World, currentWorlds[account.World].Name)
 	}
 	// strip the first " | ", on unexpeceted erros the name can still be empty
 	if len(name) >= 3 {
