@@ -16,6 +16,8 @@ var (
 	sessionsDatabase *redis.Pool
 	// cacheDatabase holds connections to the redis server
 	cacheDatabase *redis.Pool
+	// guildRolesDatabase holds connections to the redis server
+	guildRolesDatabase *redis.Pool
 )
 
 type redisDatabase int
@@ -27,6 +29,7 @@ const (
 	dbTypeGuilds
 	dbTypeSessions
 	dbTypeCache
+	dbTypeGuildRoles
 )
 
 func initializeRedisPools() {
@@ -34,6 +37,7 @@ func initializeRedisPools() {
 	guildsDatabase = newPool(dbTypeGuilds)
 	sessionsDatabase = newPool(dbTypeSessions)
 	cacheDatabase = newPool(dbTypeCache)
+	guildRolesDatabase = newPool(dbTypeGuildRoles)
 }
 
 // newPool initializes a new pool

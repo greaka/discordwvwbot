@@ -116,6 +116,11 @@ type tokenInfo struct {
 	Permissions []string `json:"permissions"`
 }
 
+type guildRole struct {
+	ID   string
+	Name string
+}
+
 // guildOptions holds all infos about a discord servers bot settings
 type guildOptions struct {
 	// gw2 server id to verify for with mode server based

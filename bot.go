@@ -323,23 +323,29 @@ func updateUserDataInGuild(userID, guildID, name string, worlds []int, removeWor
 	if err != nil {
 		return
 	}
+
+	roles, err := getGuildRoles(guildID)
+	if err != nil {
+		return
+	}
+
 	if options.RenameUsers {
 		dg.GuildMemberNickname(guildID, userID, name) // nolint: errcheck, gosec
 	}
 
 	switch options.Mode {
 	case allServers:
-		updateUserToWorldsInGuild(userID, guildID, worlds, removeWorlds, options)
+		updateUserToWorldsInGuild(userID, guildID, worlds, removeWorlds, options, roles)
 	case oneServer:
-		updateUserToVerifyInGuild(userID, guildID, worlds, removeWorlds, options, options.Gw2ServerID)
+		updateUserToVerifyInGuild(userID, guildID, worlds, removeWorlds, options, options.Gw2ServerID, roles)
 	case userBased:
-		updateUserToUserBasedVerifyInGuild(userID, guildID, worlds, removeWorlds, options)
+		updateUserToUserBasedVerifyInGuild(userID, guildID, worlds, removeWorlds, options, roles)
 	}
 }
 
 // updateUserToWorldsInGuild updates the world roles for the user in a specific guild
 // nolint: gocyclo
-func updateUserToWorldsInGuild(userID, guildID string, userWorlds []int, removeWorlds bool, options *guildOptions) {
+func updateUserToWorldsInGuild(userID, guildID string, userWorlds []int, removeWorlds bool, options *guildOptions, roles []guildRole) {
 	member, err := dg.GuildMember(guildID, userID)
 	if err != nil {
 		loglevels.Errorf("Error getting guild member: %v\n", err)
@@ -352,48 +358,71 @@ func updateUserToWorldsInGuild(userID, guildID string, userWorlds []int, removeW
 		return
 	}
 
-	// get all role ids based on world names
-	guildRolesMap := make(map[string]string)
-	var guildRoleNames []string
-	for _, role := range guildRoles {
-		guildRolesMap[role.ID] = role.Name
-		guildRoleNames = append(guildRoleNames, role.Name)
+	var wantedRoles []string
+
+	for _, world := range userWorlds {
+		found := false
+		for _, role := range roles {
+			if currentWorlds[world].Name == role.Name {
+				wantedRoles = append(wantedRoles, role.ID)
+				found = true
+				break
+			}
+		}
+		if !found {
+			for _, role := range guildRoles {
+				if role.Name == currentWorlds[world].Name {
+					wantedRoles = append(wantedRoles, role.ID)
+					found = true
+					roleStruct := guildRole{
+						ID:   role.ID,
+						Name: role.Name,
+					}
+					addGuildRole(guildID, roleStruct) // nolint: errcheck, gosec
+					roles = append(roles, roleStruct)
+					break
+				}
+			}
+			if !found {
+				_, roleStruct, err := createRoleAndAddToManaged(guildID, currentWorlds[world].Name)
+				if err != nil {
+					continue
+				}
+				roles = append(roles, roleStruct)
+				wantedRoles = append(wantedRoles, roleStruct.ID)
+			}
+		}
 	}
 
 	if options.CreateRoles {
 		for _, world := range currentWorlds {
-			if indexOfString(world.Name, guildRoleNames) == -1 {
-				createRole(guildID, world.Name) // nolint: errcheck, gosec
+			found := false
+			for _, role := range roles {
+				if role.Name == world.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				for _, role := range guildRoles {
+					if role.Name == world.Name {
+						found = true
+						roleStruct := guildRole{
+							ID:   role.ID,
+							Name: role.Name,
+						}
+						roles = append(roles, roleStruct)
+						break
+					}
+				}
+			}
+			if !found {
+				createRoleAndAddToManaged(guildID, world.Name) // nolint: errcheck, gosec
 			}
 		}
 	}
 
-	var userWorldNames []string
-	for _, world := range userWorlds {
-		userWorldNames = append(userWorldNames, currentWorlds[world].Name)
-	}
-
-	// remove world roles the user is not on (anymore)
-	userWorldNames = removeWorldsFromUserInGuild(userID, guildID, member, guildRolesMap, userWorldNames, removeWorlds)
-
-	// create discord roles if needed and add user to these world roles
-	for _, role := range userWorldNames {
-		var roleID string
-		if indexOfString(role, guildRoleNames) == -1 {
-			newRole, err := createRole(guildID, role)
-			if err != nil {
-				continue
-			}
-			roleID = newRole.ID
-		} else {
-			roleID = getKeyByValue(role, guildRolesMap)
-		}
-
-		erro := dg.GuildMemberRoleAdd(guildID, userID, roleID)
-		if erro != nil {
-			loglevels.Errorf("Error adding guild role to user: %v\n", erro)
-		}
-	}
+	assignManagedRoles(member, guildID, roles, wantedRoles, removeWorlds)
 }
 
 func createRole(guildID, name string) (newRole *discordgo.Role, err error) {
@@ -409,175 +438,162 @@ func createRole(guildID, name string) (newRole *discordgo.Role, err error) {
 	return
 }
 
-func addRole(guildID, userID, roleID string, member *discordgo.Member) (err error) {
+func createRoleAndAddToManaged(guildID, name string) (newRole *discordgo.Role, roleStruct guildRole, err error) {
+	newRole, err = createRole(guildID, name)
+	if err != nil {
+		return
+	}
+	roleStruct = guildRole{
+		ID:   newRole.ID,
+		Name: newRole.Name,
+	}
+	err = addGuildRole(guildID, roleStruct)
+	return
+}
+
+func addRole(guildID, roleID string, member *discordgo.Member) (err error) {
 	if indexOfString(roleID, member.Roles) == -1 {
-		err = dg.GuildMemberRoleAdd(guildID, userID, roleID)
+		err = dg.GuildMemberRoleAdd(guildID, member.User.ID, roleID)
 		if err != nil {
-			loglevels.Errorf("Error adding dg role %v of guild %v to user %v: %v\n", roleID, guildID, userID, err)
+			loglevels.Errorf("Error adding dg role %v of guild %v to user %v: %v\n", roleID, guildID, member.User.ID, err)
 		}
 	}
 	return
 }
 
-func removeRole(guildID, userID, roleID string, member *discordgo.Member, remove bool) (err error) {
+func removeRole(guildID, roleID string, member *discordgo.Member, remove bool) (err error) {
 	if !remove {
 		return
 	}
 	if indexOfString(roleID, member.Roles) != -1 {
-		err = dg.GuildMemberRoleRemove(guildID, userID, roleID)
+		err = dg.GuildMemberRoleRemove(guildID, member.User.ID, roleID)
 		if err != nil {
-			loglevels.Errorf("Error removing dg role %v of guild %v to user %v: %v\n", roleID, guildID, userID, err)
+			loglevels.Errorf("Error removing dg role %v of guild %v to user %v: %v\n", roleID, guildID, member.User.ID, err)
 		}
 	}
 	return
 }
 
-// removeWorldsFromUserInGuild removes every role from the user that is not part of the users worlds (anymore)
-func removeWorldsFromUserInGuild(userID, guildID string, member *discordgo.Member, guildRolesMap map[string]string,
-	worldNames []string, removeWorlds bool) (wNames []string) {
-
-	// for every role ...
+func assignManagedRoles(member *discordgo.Member, guildID string, managedRoles []guildRole, wantedRoles []string, removeRoles bool) {
+	var managedRolesOfUser []string
 	for _, role := range member.Roles {
-		// if role name is a current world name ...
-		if getWorldIDByName(guildRolesMap[role], currentWorlds) != -1 {
-			// if role is not part of users worlds ...
-			index := indexOfString(guildRolesMap[role], worldNames)
-			// ... and if we should remove worlds (can be false if unexpected errors occured while getting account data)
-			if index == -1 && removeWorlds {
-				// remove role
-				erro := dg.GuildMemberRoleRemove(guildID, userID, role)
-				if erro != nil {
-					loglevels.Errorf("Error removing guild member role: %v\n", erro)
-				}
-			} else {
-				// role is still a world name but since the user already has this role, we don't need to add it to him later
-				worldNames = remove(worldNames, index)
+		for _, managedRole := range managedRoles {
+			if managedRole.ID == role {
+				managedRolesOfUser = append(managedRolesOfUser, role)
+				break
 			}
 		}
 	}
-	wNames = worldNames
-	return
+
+	for _, role := range managedRolesOfUser {
+		index := indexOfString(role, wantedRoles)
+		if index == -1 {
+			removeRole(guildID, role, member, removeRoles) // nolint: gosec, errcheck
+		} else {
+			wantedRoles = remove(wantedRoles, index)
+		}
+	}
+
+	for _, role := range wantedRoles {
+		addRole(guildID, role, member) // nolint: gosec, errcheck
+	}
 }
 
 // nolint: gocyclo
-func updateUserToVerifyInGuild(userID, guildID string, worlds []int, removeWorlds bool, options *guildOptions, verifyWorld int) {
+func updateUserToVerifyInGuild(userID, guildID string, worlds []int, removeWorlds bool, options *guildOptions, verifyWorld int, roles []guildRole) {
 	member, err := dg.GuildMember(guildID, userID)
 	if err != nil {
 		loglevels.Errorf("Error getting guild member: %v\n", err)
 		return
 	}
 
-	guildRoles, err := dg.GuildRoles(guildID)
-	if err != nil {
-		loglevels.Errorf("Error getting guild roles: %v\n", err)
-		return
-	}
-
 	var verifiedID string
 	var linkedID string
-	for _, role := range guildRoles {
-		if role.Name == "WvW-Verified" {
+	var wantedRoles []string
+
+	for _, role := range roles {
+		switch role.Name {
+		case "WvW-Verified":
 			verifiedID = role.ID
-		}
-		if role.Name == "WvW-Linked" {
+		case "WvW-Linked":
 			linkedID = role.ID
 		}
 	}
-	if verifiedID == "" {
-		var role *discordgo.Role
-		role, err = createRole(guildID, "WvW-Verified")
+
+	if verifiedID == "" || (options.AllowLinked && linkedID == "") {
+		guildRoles, err := dg.GuildRoles(guildID)
 		if err != nil {
+			loglevels.Errorf("Error getting guild roles: %v\n", err)
 			return
 		}
-		verifiedID = role.ID
-	}
-	if options.AllowLinked && linkedID == "" {
-		var role *discordgo.Role
-		role, err = createRole(guildID, "WvW-Linked")
-		if err != nil {
-			return
+
+		for _, role := range guildRoles {
+			if role.Name == "WvW-Verified" {
+				verifiedID = role.ID
+				roleStruct := guildRole{
+					ID:   role.ID,
+					Name: role.Name,
+				}
+				roles = append(roles, roleStruct)
+				erro := addGuildRole(guildID, roleStruct)
+				if erro != nil {
+					loglevels.Warningf("Error adding existing verified role %v to managed roles: %v", role.ID, erro)
+				}
+			}
+			if role.Name == "WvW-Linked" {
+				linkedID = role.ID
+				roleStruct := guildRole{
+					ID:   role.ID,
+					Name: role.Name,
+				}
+				roles = append(roles, roleStruct)
+				erro := addGuildRole(guildID, roleStruct)
+				if erro != nil {
+					loglevels.Warningf("Error adding existing linked role %v to managed roles: %v", role.ID, erro)
+				}
+			}
 		}
-		linkedID = role.ID
+		if verifiedID == "" {
+			_, roleStruct, err := createRoleAndAddToManaged(guildID, "WvW-Verified")
+			if err != nil {
+				return
+			}
+			verifiedID = roleStruct.ID
+			roles = append(roles, roleStruct)
+		}
+		if options.AllowLinked && linkedID == "" {
+			_, roleStruct, err := createRoleAndAddToManaged(guildID, "WvW-Linked")
+			if err != nil {
+				return
+			}
+			linkedID = roleStruct.ID
+			roles = append(roles, roleStruct)
+		}
 	}
 
 	if indexOfInt(verifyWorld, worlds) != -1 {
-		err = addRole(guildID, userID, verifiedID, member)
-		if err != nil {
-			return
-		}
-		if options.AllowLinked {
-			err = removeRole(guildID, userID, linkedID, member, removeWorlds)
-			if err != nil {
-				return
-			}
-		} else {
-			if linkedID != "" {
-				err = dg.GuildRoleDelete(guildID, linkedID)
-				if err != nil {
-					loglevels.Errorf("Error deleting role %v of guild %v: %v", linkedID, guildID, err)
-					return
-				}
-			}
-		}
+		wantedRoles = append(wantedRoles, verifiedID)
 	} else {
 		if options.AllowLinked {
-			linked := false
 			for _, world := range currentWorlds[verifyWorld].Linked {
 				if indexOfInt(world, worlds) != -1 {
-					linked = true
 					if options.VerifyOnly {
-						err = addRole(guildID, userID, verifiedID, member)
-						if err != nil {
-							return
-						}
-						err = removeRole(guildID, userID, linkedID, member, removeWorlds)
-						if err != nil {
-							return
-						}
+						wantedRoles = append(wantedRoles, verifiedID)
 					} else {
-						err = addRole(guildID, userID, linkedID, member)
-						if err != nil {
-							return
-						}
-						err = removeRole(guildID, userID, verifiedID, member, removeWorlds)
-						if err != nil {
-							return
-						}
+						wantedRoles = append(wantedRoles, linkedID)
 					}
-				}
-			}
-			if !linked {
-				err = removeRole(guildID, userID, verifiedID, member, removeWorlds)
-				if err != nil {
-					return
-				}
-				if options.AllowLinked {
-					err = removeRole(guildID, userID, linkedID, member, removeWorlds)
-					if err != nil {
-						return
-					}
-				}
-			}
-		} else {
-			err = removeRole(guildID, userID, verifiedID, member, removeWorlds)
-			if err != nil {
-				return
-			}
-			if linkedID != "" {
-				err = dg.GuildRoleDelete(guildID, linkedID)
-				if err != nil {
-					loglevels.Errorf("Error deleting role %v of guild %v: %v", linkedID, guildID, err)
-					return
 				}
 			}
 		}
 	}
+
+	assignManagedRoles(member, guildID, roles, wantedRoles, removeWorlds)
 }
 
-func updateUserToUserBasedVerifyInGuild(userID, guildID string, worlds []int, removeWorlds bool, options *guildOptions) {
+func updateUserToUserBasedVerifyInGuild(userID, guildID string, worlds []int, removeWorlds bool, options *guildOptions, roles []guildRole) {
 	owner, err := getCachedGw2Account(options.Gw2AccountKey)
 	if err != nil {
 		return
 	}
-	updateUserToVerifyInGuild(userID, guildID, worlds, removeWorlds, options, owner.World)
+	updateUserToVerifyInGuild(userID, guildID, worlds, removeWorlds, options, owner.World, roles)
 }
