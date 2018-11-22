@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/gomodule/redigo/redis"
 	"github.com/greaka/discordwvwbot/loglevels"
 )
@@ -115,7 +116,7 @@ func getGuildSettings(guildID string) (s *guildOptions, err error) {
 	return
 }
 
-func getGuildRoles(guildID string) (roleStructs []guildRole, err error) {
+func getGuildRoles(guildID string, guildRoles []*discordgo.Role) (roleStructs []guildRole, err error) {
 	redisConn := guildRolesDatabase.Get()
 	// get all managed guild roles
 	roleString, err := redis.Values(redisConn.Do("SMEMBERS", guildID))
@@ -139,7 +140,20 @@ func getGuildRoles(guildID string) (roleStructs []guildRole, err error) {
 			loglevels.Errorf("Error converting guild roles for guild %v: %v\n", guildID, err)
 			return
 		}
-		roleStructs = append(roleStructs, roleStruct)
+
+		found := false
+		for _, guildRole := range guildRoles {
+			if guildRole.ID == roleStruct.ID {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			roleStructs = append(roleStructs, roleStruct)
+		} else {
+			removeGuildRole(guildID, roleStruct) // nolint: gosec, errcheck
+		}
 	}
 
 	return
@@ -157,7 +171,26 @@ func addGuildRole(guildID string, role guildRole) (err error) {
 	_, err = redisConn.Do("SADD", guildID, roleString)
 	closeConnection(redisConn)
 	if err != nil {
-		loglevels.Errorf("Error getting api keys from redis: %v\n", err)
+		loglevels.Errorf("Error getting guild role from redis: %v\n", err)
+		return
+	}
+
+	return
+}
+
+func removeGuildRole(guildID string, role guildRole) (err error) {
+	roleString, err := json.Marshal(role)
+	if err != nil {
+		loglevels.Errorf("Error converting guild roles for guild %v: %v\n", guildID, err)
+		return
+	}
+
+	redisConn := guildRolesDatabase.Get()
+	// get all managed guild roles
+	_, err = redisConn.Do("SREM", guildID, roleString)
+	closeConnection(redisConn)
+	if err != nil {
+		loglevels.Errorf("Error removing guild role from redis: %v\n", err)
 		return
 	}
 
