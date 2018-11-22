@@ -54,7 +54,7 @@
                     <li>One Server</li>
                     <p>The bot will only allow the server that you specify. When you choose to allow linked servers, then two
                         roles will be created; the name of the server you pick and a role
-                        <code>Linked Servers</code> that every user of any linked server will get.</p>
+                        <code>WvW-Linked</code> that every user of any linked server will get.</p>
                     <li>User Based</li>
                     <p>
                         Works like
