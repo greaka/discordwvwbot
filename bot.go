@@ -60,6 +60,26 @@ func startBot() {
 	}()
 	loglevels.Info("Bot is now running")
 
+	statusListenTo()
+
+	// firing up the update cycle
+	go updater()
+
+	for i := 0; i < 4; i++ {
+		go updateCycle()
+	}
+
+	updateCycle()
+}
+
+func updateCycle() {
+	// waiting for userids to update
+	for {
+		updateUser(<-updateUserChannel)
+	}
+}
+
+func statusListenTo() {
 	// update discord status to "listening to <hosturl>"
 	status := discordgo.UpdateStatusData{
 		Status:    string(discordgo.StatusOnline),
@@ -74,19 +94,41 @@ func startBot() {
 	if statusUpdateError != nil {
 		loglevels.Errorf("Error updating discord status: %v\n", statusUpdateError)
 	}
+}
 
-	// firing up the update cycle
-	go updater()
-
-	for i := 0; i < 4; i++ {
-		go updateCycle()
+func statusUpdateWorlds() {
+	now := int(time.Now().UnixNano() / int64(time.Millisecond))
+	// update discord status to "listening to <hosturl>"
+	status := discordgo.UpdateStatusData{
+		Status:    string(discordgo.StatusOnline),
+		AFK:       false,
+		IdleSince: &now,
+		Game: &discordgo.Game{
+			Name: "updating worlds",
+			Type: 0,
+		},
+	}
+	statusUpdateError := dg.UpdateStatusComplex(status)
+	if statusUpdateError != nil {
+		loglevels.Errorf("Error updating discord status: %v\n", statusUpdateError)
 	}
 }
 
-func updateCycle() {
-	// waiting for userids to update
-	for {
-		updateUser(<-updateUserChannel)
+func statusUpdateUsers() {
+	now := int(time.Now().UnixNano() / int64(time.Millisecond))
+	// update discord status to "listening to <hosturl>"
+	status := discordgo.UpdateStatusData{
+		Status:    string(discordgo.StatusOnline),
+		AFK:       false,
+		IdleSince: &now,
+		Game: &discordgo.Game{
+			Name: "updating all users",
+			Type: 0,
+		},
+	}
+	statusUpdateError := dg.UpdateStatusComplex(status)
+	if statusUpdateError != nil {
+		loglevels.Errorf("Error updating discord status: %v\n", statusUpdateError)
 	}
 }
 
@@ -154,6 +196,7 @@ func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
 // updateAllUsers will send update requests for every user and will wait the set duration between requests
 func updateAllUsers() {
 	loglevels.Info("Updating all users...")
+	statusUpdateUsers()
 	redisConn := usersDatabase.Get()
 	defer closeConnection(redisConn)
 	iterateThroughUsers := time.Tick(delayBetweenUsers)
@@ -163,6 +206,7 @@ func updateAllUsers() {
 	}
 
 	userCount := iterateDatabase(redisConn, processValue)
+	statusListenTo()
 	loglevels.Info("Finished updating all users")
 
 	// calculate the delay between full updates based on the user count
@@ -211,6 +255,7 @@ func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 // updateCurrentWorlds updates the current world list
 func updateCurrentWorlds() {
 	loglevels.Info("Updating worlds...")
+	statusUpdateWorlds()
 
 	matches, err := getCurrentMatches()
 	if err != nil {
@@ -234,6 +279,7 @@ func updateCurrentWorlds() {
 		currentWorlds[world.ID].Name = world.Name
 	}
 
+	statusListenTo()
 	loglevels.Info("Finished updating worlds")
 }
 
