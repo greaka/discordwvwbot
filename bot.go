@@ -337,7 +337,7 @@ func getAccountData(userID string) (name string, worlds []int, err error) {
 					loglevels.Errorf("Error deleting api key from redis: %v", erro)
 				}
 			} else {
-				loglevels.Errorf("Error getting account info: %v\n", erro)
+				loglevels.Warningf("Error getting account info: %v\n", erro)
 				// unexpected error, don't revoke discord roles because of a server error
 				err = erro
 			}

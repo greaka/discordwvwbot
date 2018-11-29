@@ -86,7 +86,7 @@ func gw2Request(endpoint string, result interface{}) (err error) {
 	}
 	defer func() {
 		if erro := res.Body.Close(); erro != nil {
-			loglevels.Errorf("Error closing response body: %v\n", err)
+			loglevels.Errorf("Error closing response body: %v\n", erro)
 		}
 	}()
 
