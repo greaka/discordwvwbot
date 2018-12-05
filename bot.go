@@ -303,7 +303,7 @@ func updateUser(userID string) {
 		_, erro := dg.GuildMember(guild, userID)
 		if erro != nil {
 			if !strings.Contains(erro.Error(), fmt.Sprintf("%v", discordgo.ErrCodeUnknownMember)) {
-				loglevels.Errorf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
+				loglevels.Warningf("Error getting member %v of guild %v: %v\n", userID, guild, erro)
 			}
 		} else {
 			updateUserDataInGuild(userID, guild, name, worlds, err == nil)
