@@ -226,39 +226,44 @@ func processSubmitData(r *http.Request) (err error) {
 // nolint: gocyclo
 func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
+	loglevels.Info("New auth callback")
 	state := r.FormValue("state")
 	// request oauth access with the issue data sent by discord
+	loglevels.Info("get oauth token...")
 	token, err := getOAuthToken(r, w)
 	if err != nil {
+		loglevels.Info("error in oauth")
 		return
 	}
+	loglevels.Info("got oauth token")
 
 	// get discord id
+	loglevels.Info("get discord user id")
 	user, err := setDiscordUser(token.AccessToken)
 	if err != nil {
+		loglevels.Info("error getting discord user id")
 		writeToResponse(w, "Internal Error getting your discord ID. If this error persists, then please contact me.")
 		return
 	}
-	/*
-		stateString, err := b64.URLEncoding.DecodeString(state)
-		if err != nil {
-			loglevels.Errorf("Error decoding base64 %v: %v\n", state, err)
-			writeToResponse(w, "Internal error, please try again or contact me.")
-			return
-		}
-	*/
+	loglevels.Infof("got dicsord user id %v", user.ID)
+
+	loglevels.Info("unmarshaling state string...")
 	var oauthReason oauthState
 	err = json.Unmarshal([]byte(state), &oauthReason)
 	if err != nil {
+		loglevels.Info("error unmarshaling state string")
 		loglevels.Errorf("Error deserializing json %v: %v\n", state, err)
 		writeToResponse(w, "Internal error, please try again or contact me.")
 		return
 	}
+	loglevels.Infof("unmarshaled state string. request reason: %v", oauthReason.Reason)
+	loglevels.Info("Reasons: 1=addUser	2=syncUser 3=deleteKeys 4=useDashboard")
 
 	switch oauthReason.Reason {
 
 	// delete everything we know about this user
 	case deleteKeys:
+		loglevels.Infof("Delete all data for user %v", user.ID)
 		redisConn := usersDatabase.Get()
 		defer closeConnection(redisConn)
 		_, err = redisConn.Do("DEL", user.ID)
@@ -276,10 +281,12 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// sync the user on all discord servers
 	case syncUser:
+		loglevels.Infof("Sync user %v", user.ID)
 		updateUserChannel <- user.ID
 
 	// save api key and update user
 	case addUser:
+		loglevels.Infof("add user %v", user.ID)
 		redisConn := usersDatabase.Get()
 		// SADD will ignore the request if the apikey is already saved from this user
 		_, err = redisConn.Do("SADD", user.ID, oauthReason.Data)
@@ -292,6 +299,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		loglevels.Infof("New user: %v", user.ID)
 		updateUserChannel <- user.ID
 	case useDashboard:
+		loglevels.Infof("Dashboard for user %v requested", user.ID)
 		oauthReason.Data, err = newSession(user.ID)
 		if err != nil {
 			writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
@@ -308,6 +316,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		loglevels.Errorf("malformed state: %v", oauthReason)
 	}
 
+	loglevels.Infof("write 'Success' for user %v", user.ID)
 	if _, err = fmt.Fprint(w, "Success"); err != nil {
 		loglevels.Errorf("Error writing to Responsewriter: %v\n", err)
 		writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
