@@ -281,6 +281,11 @@ func updateCurrentWorlds() {
 
 	statusListenTo()
 	loglevels.Info("Finished updating worlds")
+
+	loglevels.Info("Current Links:")
+	for _, world := range currentWorlds {
+		loglevels.Infof("%v", world)
+	}
 }
 
 func processMatchColor(worlds []int) {
