@@ -214,6 +214,7 @@ func updateAllUsers() {
 
 	// calculate the delay between full updates based on the user count
 	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*15+int(float64(userCount)*0.05)) // updatetime per user * 15 * (number of users + 5% margin)
+	loglevels.Infof("Delay between full updates: %v", delayBetweenFullUpdates)
 }
 
 // guildMemberAdd listens to new users joining a discord server
