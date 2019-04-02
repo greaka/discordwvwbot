@@ -24,6 +24,9 @@ var (
 
 	// delayBetweenFullUpdates holds the delay betwenn starting a new full user update cycle
 	delayBetweenFullUpdates time.Duration
+
+	// userCount holds the current userCount. is uninitialized before first full update cycle
+	userCount int
 )
 
 const (
@@ -122,7 +125,7 @@ func statusUpdateUsers() {
 		AFK:       false,
 		IdleSince: &now,
 		Game: &discordgo.Game{
-			Name: "updating all users",
+			Name: fmt.Sprintf("updating %v users", userCount),
 			Type: 0,
 		},
 	}
@@ -205,12 +208,12 @@ func updateAllUsers() {
 		updateUserChannel <- userID
 	}
 
-	userCount := iterateDatabase(redisConn, processValue)
+	userCount = iterateDatabase(redisConn, processValue)
 	statusListenTo()
 	loglevels.Info("Finished updating all users")
 
 	// calculate the delay between full updates based on the user count
-	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount+int(float64(userCount)*0.05)) // updatetime per user * (number of users + 5% margin)
+	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*15+int(float64(userCount)*0.05)) // updatetime per user * 15 * (number of users + 5% margin)
 }
 
 // guildMemberAdd listens to new users joining a discord server
