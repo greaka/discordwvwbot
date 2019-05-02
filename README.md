@@ -1,7 +1,7 @@
 # Discord Gw2 WvW Bot
 A Discord Bot to automatically assign roles based on the gw2 wvw server.
 
-You can find the official one under [wvwbot.tk](https://wvwbot.tk).
+You can find the official one under [wvwbot.greaka.de](https://wvwbot.greaka.de).
 
 ## Building it
 This is written in Go 1.10.
