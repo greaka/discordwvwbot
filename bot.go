@@ -337,7 +337,7 @@ func getAccountData(userID string) (name string, worlds []int, err error) {
 		account, erro := getGw2Account(key)
 		if erro != nil {
 			// if the key got revoked, delete it
-			if strings.Contains(erro.Error(), "invalid key") {
+			if strings.Contains(erro.Error(), "invalid key") || strings.Contains(erro.Error(), "Invalid access token") {
 				loglevels.Info("Encountered invalid key")
 				redisConn := usersDatabase.Get()
 				_, erro = redisConn.Do("SREM", userID, key)
