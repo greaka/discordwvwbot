@@ -119,13 +119,17 @@ func statusUpdateWorlds() {
 
 func statusUpdateUsers() {
 	now := int(time.Now().UnixNano() / int64(time.Millisecond))
+	text := fmt.Sprintf("updating %v users", userCount)
+	if userCount == 0 {
+		text = "updating all users"
+	}
 	// update discord status to "listening to <hosturl>"
 	status := discordgo.UpdateStatusData{
 		Status:    string(discordgo.StatusOnline),
 		AFK:       false,
 		IdleSince: &now,
 		Game: &discordgo.Game{
-			Name: fmt.Sprintf("updating %v users", userCount),
+			Name: text,
 			Type: 0,
 		},
 	}
@@ -156,43 +160,53 @@ func updater() {
 }
 
 func setDelay() (queueUserChannel <-chan time.Time) {
+	nextWorldUpdate := nextWorldReset()
 	// wait at least 15min until starting another full update
 	fullUpdateDelay := delayBetweenFullUpdates
 	if delayBetweenFullUpdates < 15*time.Minute {
 		fullUpdateDelay = 15 * time.Minute
 	}
-	queueUserChannel = time.After(fullUpdateDelay)
+	if fullUpdateDelay*2 < time.Until(nextWorldUpdate) {
+		queueUserChannel = time.After(fullUpdateDelay)
+	} else {
+		queueUserChannel = time.After(fullUpdateDelay * 2)
+	}
 	return
 }
 
 // resetWorldUpdateTimer returns a channel that fires when the next weekly wvw reset is done
 func resetWorldUpdateTimer() (worldsChannel <-chan time.Time) {
-	daysUntilNextFriday := int(time.Friday - time.Now().Weekday())
+	nextReset := nextWorldReset()
+	worldsChannel = time.After(time.Until(nextReset))
+	return
+}
+
+func nextWorldReset() (nextReset time.Time) {
+	now := time.Now()
+	daysUntilNextFriday := int(time.Friday - now.Weekday())
 	if daysUntilNextFriday < 0 {
 		daysUntilNextFriday += 7
 	}
-	daysUntilNextSaturday := int(time.Saturday - time.Now().Weekday())
+	daysUntilNextSaturday := int(time.Saturday - now.Weekday())
 	if daysUntilNextSaturday < 0 {
 		daysUntilNextSaturday += 7
 	}
-	nextEUReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextFriday, 18, 15, 0, 0, time.UTC)
-	nextUSReset := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+daysUntilNextSaturday, 2, 15, 0, 0, time.UTC)
-	var nextReset time.Time
+	nextEUReset := time.Date(now.Year(), now.Month(), now.Day()+daysUntilNextFriday, 18, 15, 0, 0, time.UTC)
+	nextUSReset := time.Date(now.Year(), now.Month(), now.Day()+daysUntilNextSaturday, 2, 15, 0, 0, time.UTC)
 	// we have to double check if we can use the earlier time because the calculations to this point are only day precise
 	if nextEUReset.Before(nextUSReset) {
-		if nextEUReset.Before(time.Now()) {
+		if nextEUReset.Before(now) {
 			nextReset = nextUSReset
 		} else {
 			nextReset = nextEUReset
 		}
 	} else {
-		if nextUSReset.Before(time.Now()) {
+		if nextUSReset.Before(now) {
 			nextReset = nextEUReset
 		} else {
 			nextReset = nextUSReset
 		}
 	}
-	worldsChannel = time.After(time.Until(nextReset))
 	return
 }
 
@@ -338,7 +352,7 @@ func getAccountData(userID string) (name string, worlds []int, err error) {
 		if erro != nil {
 			// if the key got revoked, delete it
 			if strings.Contains(erro.Error(), "invalid key") || strings.Contains(erro.Error(), "Invalid access token") {
-				loglevels.Info("Encountered invalid key")
+				loglevels.Infof("Encountered invalid key at %v", userID)
 				redisConn := usersDatabase.Get()
 				_, erro = redisConn.Do("SREM", userID, key)
 				closeConnection(redisConn)
