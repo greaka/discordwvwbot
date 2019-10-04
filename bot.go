@@ -277,6 +277,7 @@ func updateCurrentWorlds() {
 
 	matches, err := getCurrentMatches()
 	if err != nil {
+		loglevels.Errorf("Error fetching current worlds: %v\n", err)
 		return
 	}
 
