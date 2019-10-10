@@ -321,6 +321,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		loglevels.Errorf("Error writing to Responsewriter: %v\n", err)
 		writeToResponse(w, "Something went seriously wrong. If this happens again, please contact me.")
 	}
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // handleAuthRequest forges the oauth request to discord and packs data for the callback
