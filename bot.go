@@ -41,7 +41,7 @@ const (
 
 // starting up the bot part
 func startBot() {
-	updateUserChannel = make(chan string)
+	updateUserChannel = make(chan string, 1000)
 
 	var err error
 
