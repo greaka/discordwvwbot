@@ -218,7 +218,9 @@ func updateAllUsers() {
 	defer closeConnection(redisConn)
 	iterateThroughUsers := time.Tick(delayBetweenUsers)
 	processValue := func(userID string) {
-		<-iterateThroughUsers
+		for len(updateUserChannel) > 10 {
+			<-iterateThroughUsers
+		}
 		updateUserChannel <- userID
 	}
 
