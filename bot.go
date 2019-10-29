@@ -264,6 +264,7 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 
 // guildDelete listens to the kick or ban event when the bot gets removed
 func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	loglevels.Infof("deleting guild: %v\n", m.ID)
 	redisConn := guildsDatabase.Get()
 	_, err := redisConn.Do("DEL", m.ID)
 	closeConnection(redisConn)

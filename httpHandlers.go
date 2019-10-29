@@ -121,6 +121,8 @@ func handleSubmitDashboard(w http.ResponseWriter, r *http.Request) {
 		writeToResponse(w, "Session expired.")
 		return
 	}
+	guild := r.FormValue("guild")
+	loglevels.Infof("saving dashboard from user %v for guild %v...\n", user, guild)
 
 	servers, err := getDiscordServers(user)
 	if err != nil {
@@ -128,13 +130,14 @@ func handleSubmitDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isMember := checkUserIsMember(r.FormValue("guild"), servers)
+	isMember := checkUserIsMember(guild, servers)
 	if isMember {
 		err = processSubmitData(r)
 		if err != nil {
 			writeToResponse(w, "%v", err)
 		} else {
 			writeToResponse(w, "Success")
+			loglevels.Infof("dashboard saved by user %v for guild %v\n", user, guild)
 		}
 		return
 	}

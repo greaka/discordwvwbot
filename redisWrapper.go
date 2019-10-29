@@ -68,6 +68,7 @@ func saveNewGuild(gc redis.Conn, guild string) (err error) {
 		VerifyOnly:    false,
 		DeleteLinked:  false,
 	}
+	loglevels.Infof("New guild: %v\n", guild)
 
 	var stringifiedOptions []byte
 	stringifiedOptions, err = json.Marshal(options)
