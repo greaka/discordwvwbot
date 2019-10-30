@@ -289,18 +289,11 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// save api key and update user
 	case addUser:
-		loglevels.Infof("add user %v", user.ID)
-		redisConn := usersDatabase.Get()
-		// SADD will ignore the request if the apikey is already saved from this user
-		_, err = redisConn.Do("SADD", user.ID, oauthReason.Data)
-		closeConnection(redisConn)
+		err = addUserKey(user.ID, oauthReason.Data)
 		if err != nil {
-			loglevels.Errorf("Error saving key to redis: %v\n", err)
-			writeToResponse(w, "Internal error, please try again or contact me.")
+			writeToResponse(w, fmt.Sprintf("%v", err))
 			return
 		}
-		loglevels.Infof("New user: %v", user.ID)
-		updateUserChannel <- user.ID
 	case useDashboard:
 		loglevels.Infof("Dashboard for user %v requested", user.ID)
 		oauthReason.Data, err = newSession(user.ID)

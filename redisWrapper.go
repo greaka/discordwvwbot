@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/gomodule/redigo/redis"
@@ -195,5 +196,21 @@ func removeGuildRole(guildID string, role guildRole) (err error) {
 		return
 	}
 
+	return
+}
+
+func addUserKey(user string, key string) (erro error) {
+	loglevels.Infof("add user %v", user)
+	redisConn := usersDatabase.Get()
+	// SADD will ignore the request if the apikey is already saved from this user
+	_, err := redisConn.Do("SADD", user, key)
+	closeConnection(redisConn)
+	if err != nil {
+		loglevels.Errorf("Error saving key to redis: %v\n", err)
+		erro = errors.New("internal error, please try again or contact me")
+		return
+	}
+	loglevels.Infof("New user: %v", user)
+	updateUserChannel <- user
 	return
 }
