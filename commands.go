@@ -14,7 +14,7 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	s.ChannelTyping(m.ChannelID)
+	_ = s.ChannelTyping(m.ChannelID) // nolint: errcheck, gosec
 
 	mes := strings.Trim(m.Content[4:], " ")
 

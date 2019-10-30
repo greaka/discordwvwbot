@@ -371,7 +371,7 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 // handleInvite responds with a discord URL to invite this bot to a discord server
 func handleInvite(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
-	http.Redirect(w, r, "https://discordapp.com/oauth2/authorize?client_id="+config.DiscordClientID+"&scope=bot&permissions=402653184", http.StatusPermanentRedirect)
+	http.Redirect(w, r, "https://discordapp.com/oauth2/authorize?client_id="+config.DiscordClientID+"&scope=bot&permissions=402680832", http.StatusPermanentRedirect)
 }
 
 // addHeaders adds the standard headers to the http.ResponseWriter
