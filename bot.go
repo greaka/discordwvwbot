@@ -278,27 +278,41 @@ func updateCurrentWorlds() {
 	loglevels.Info("Updating worlds...")
 	statusUpdateWorlds()
 
-	matches, err := getCurrentMatches()
-	if err != nil {
-		loglevels.Errorf("Error fetching current worlds: %v\n", err)
-		return
-	}
-
-	// reformat to custom projection
-	currentWorlds = make(map[int]*linkInfo)
-	for _, match := range matches {
-		processMatchColor(match.AllWorlds.Red)
-		processMatchColor(match.AllWorlds.Blue)
-		processMatchColor(match.AllWorlds.Green)
-	}
-
 	worlds, err := getWorlds()
 	if err != nil {
 		return
 	}
 
-	for _, world := range worlds {
-		currentWorlds[world.ID].Name = world.Name
+	for {
+		matches, err := getCurrentMatches()
+		if err != nil {
+			loglevels.Errorf("Error fetching current worlds: %v\n", err)
+			return
+		}
+
+		// reformat to custom projection
+		currentWorlds = make(map[int]*linkInfo)
+		for _, match := range matches {
+			processMatchColor(match.AllWorlds.Red)
+			processMatchColor(match.AllWorlds.Blue)
+			processMatchColor(match.AllWorlds.Green)
+		}
+
+		inconsistent := false
+		for _, world := range worlds {
+			if _, ok := currentWorlds[world.ID]; !ok {
+				loglevels.Warningf("World %v not found in match data, trying again...", world.ID)
+				inconsistent = true
+				break
+			}
+			currentWorlds[world.ID].Name = world.Name
+		}
+		if inconsistent {
+			delay := time.After(1 * time.Minute)
+			<-delay
+		} else {
+			break
+		}
 	}
 
 	statusListenTo()
