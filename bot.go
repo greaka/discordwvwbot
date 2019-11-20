@@ -226,6 +226,7 @@ func updateAllUsers() {
 	defer closeConnection(redisConn)
 	iterateThroughUsers := time.Tick(delayBetweenUsers)
 	processValue := func(userID string) {
+		<-iterateThroughUsers
 		for len(updateUserChannel) > 10 {
 			<-iterateThroughUsers
 		}
@@ -237,7 +238,7 @@ func updateAllUsers() {
 	loglevels.Info("Finished updating all users")
 
 	// calculate the delay between full updates based on the user count
-	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*15+int(float64(userCount)*0.05)) // updatetime per user * 15 * (number of users + 5% margin)
+	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*5+int(float64(userCount)*0.05)) // updatetime per user * 5 * (number of users + 5% margin)
 	loglevels.Infof("Delay between full updates: %v", delayBetweenFullUpdates)
 }
 
