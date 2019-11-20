@@ -238,7 +238,7 @@ func updateAllUsers() {
 	loglevels.Info("Finished updating all users")
 
 	// calculate the delay between full updates based on the user count
-	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*5+int(float64(userCount)*0.05)) // updatetime per user * 5 * (number of users + 5% margin)
+	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*2+int(float64(userCount)*0.05)) // updatetime per user * 2 * (number of users + 5% margin)
 	loglevels.Infof("Delay between full updates: %v", delayBetweenFullUpdates)
 }
 
