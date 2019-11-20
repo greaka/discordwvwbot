@@ -368,9 +368,7 @@ func updateUser(userID string) {
 	name, worlds, err := getAccountData(userID)
 	processGuild := func(guild string) {
 		member, ok := guildMembers[guild][userID]
-		if !ok {
-			loglevels.Errorf("Member %v of guild %v not found\n", userID, guild)
-		} else {
+		if ok {
 			updateUserDataInGuild(member, name, worlds, err == nil)
 		}
 	}
