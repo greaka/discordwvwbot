@@ -36,11 +36,11 @@ var (
 const (
 	// delayBetweenUsers holds the duration to wait before queueing up the next user to update in a full update cycle
 	/* 	gw2 api rate limit: 600 requests per minute
-	api keys to check per user (average): 2
-	600 / 2 = 300 users per minute
-	60/300 = 0.2s per user
+	api keys to check per user (average): 3
+	600 / 3 = 200 users per minute
+	60/200 = 0.3s per user
 	*/
-	delayBetweenUsers time.Duration = 200 * time.Millisecond
+	delayBetweenUsers time.Duration = 300 * time.Millisecond
 )
 
 // starting up the bot part
