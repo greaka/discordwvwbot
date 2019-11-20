@@ -58,12 +58,12 @@ func cacheGw2Request(endpoint, token, cache string, seconds int, result interfac
 		loglevels.Warningf("Error marshaling cache: %v\n", erro)
 		return
 	}
-
 	_, erro = c.Do("SET", cache+token, string(resultbytes), "EX", seconds)
 	if erro != nil {
 		loglevels.Warningf("Error setting cache: %v", erro)
 		return
 	}
+
 	return
 }
 

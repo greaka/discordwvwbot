@@ -26,7 +26,7 @@ func (w WebhookLogger) Write(p []byte) (n int, err error) {
 		return
 	}
 
-	err = w.session.WebhookExecute(w.id, w.token, true, webhookParams)
+	_, err = w.session.WebhookExecute(w.id, w.token, true, webhookParams)
 	// io.Writer specifies that the number of written characters has to be returned
 	if err != nil {
 		n = 0
