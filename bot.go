@@ -235,7 +235,7 @@ func updateAllUsers() {
 
 	userCount = iterateDatabase(redisConn, processValue)
 	statusListenTo()
-	loglevels.Info("Finished updating all users")
+	loglevels.Infof("Finished updating %v users", userCount)
 
 	// calculate the delay between full updates based on the user count
 	delayBetweenFullUpdates = delayBetweenUsers * time.Duration(userCount*2+int(float64(userCount)*0.05)) // updatetime per user * 2 * (number of users + 5% margin)
