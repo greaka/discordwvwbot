@@ -532,12 +532,12 @@ func updateUserToWorldsInGuild(member *discordgo.Member, userWorlds []int, remov
 func createRole(guildID, name string) (newRole *discordgo.Role, err error) {
 	newRole, err = dg.GuildRoleCreate(guildID)
 	if err != nil {
-		loglevels.Errorf("Error creating guild role: %v\n", err)
+		loglevels.Errorf("Error creating guild role in guild %v: %v\n", guildID, err)
 		return
 	}
 	newRole, err = dg.GuildRoleEdit(guildID, newRole.ID, name, newRole.Color, newRole.Hoist, newRole.Permissions, newRole.Mentionable)
 	if err != nil {
-		loglevels.Errorf("Error editing guild role: %v\n", err)
+		loglevels.Errorf("Error editing guild role in guild %v: %v\n", guildID, err)
 	}
 	return
 }
