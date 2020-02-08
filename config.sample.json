@@ -14,5 +14,6 @@
     "webhookIdWarning": "456",
     "webhookTokenWarning": "def",
     "webhookIdError": "789",
-    "webhookTokenError": "ghi"
+    "webhookTokenError": "ghi",
+    "owner": "11234906342"
 }

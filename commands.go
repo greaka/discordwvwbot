@@ -27,6 +27,8 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		addKey(m, key)
 	case strings.HasPrefix(mes, "purge"):
 		purgeGuild(m)
+	case strings.HasPrefix(mes, "check"):
+		printUserWorlds(m, strings.Trim(mes[5:], " "))
 	}
 }
 
@@ -55,7 +57,7 @@ func addKey(m *discordgo.MessageCreate, key string) {
 	if err != nil {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" Internal error, please try again or contact me.")
 		if erro != nil {
-			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
@@ -65,7 +67,7 @@ func addKey(m *discordgo.MessageCreate, key string) {
 	if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name))
 		if erro != nil {
-			loglevels.Errorf("Failed to send invalid key message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send invalid key message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
@@ -74,7 +76,7 @@ func addKey(m *discordgo.MessageCreate, key string) {
 	if err != nil {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" %v", err))
 		if erro != nil {
-			loglevels.Errorf("Failed to send key save failed message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send key save failed message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
@@ -93,7 +95,7 @@ func purgeGuild(m *discordgo.MessageCreate) {
 		loglevels.Warningf("Error getting roles for guild %v: %v", m.GuildID, err)
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" Internal error, please try again or contact me.")
 		if erro != nil {
-			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
@@ -120,7 +122,7 @@ func purgeGuild(m *discordgo.MessageCreate) {
 	if !found {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+", you are missing the permission `Manage Roles` to perform this operation.")
 		if erro != nil {
-			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
@@ -129,7 +131,7 @@ func purgeGuild(m *discordgo.MessageCreate) {
 	if err != nil {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" Internal error, please try again or contact me.")
 		if erro != nil {
-			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
@@ -168,13 +170,49 @@ func purgeGuild(m *discordgo.MessageCreate) {
 		loglevels.Warningf("Error purging guild %v: %v", m.GuildID, err)
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" Completed with errors.")
 		if erro != nil {
-			loglevels.Errorf("Failed to send partial success message to user %v: %v", m.Author.ID, err)
+			loglevels.Errorf("Failed to send partial success message to user %v: %v", m.Author.ID, erro)
 		}
 		return
 	}
 
 	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" Success.")
 	if erro != nil {
-		loglevels.Errorf("Failed to send success message to user %v: %v", m.Author.ID, err)
+		loglevels.Errorf("Failed to send success message to user %v: %v", m.Author.ID, erro)
+	}
+}
+
+func isOwner(userID string) bool {
+	return config.Owner == userID
+}
+
+func printUserWorlds(m *discordgo.MessageCreate, userID string) {
+	if !isOwner(m.Author.ID) {
+		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+", you need to be bot owner to use this command.")
+		if erro != nil {
+			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
+		}
+		return
+	}
+
+	userName, worlds, err := getAccountData(struct {
+		string
+		bool
+	}{string: userID, bool: true})
+
+	worldNames := ""
+	for _, world := range worlds {
+		worldNames += " | " + currentWorlds[world].Name
+	}
+	if len(worldNames) >= 3 {
+		worldNames = worldNames[3:]
+	}
+
+	errMes := "nil"
+	if err != nil {
+		errMes = err.Error()
+	}
+	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+"\nAccount names: "+userName+"\nworlds: "+worldNames+"\nerr: "+errMes)
+	if erro != nil {
+		loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 	}
 }

@@ -60,6 +60,8 @@ var config struct {
 	// WebhookTokenError is the auth token for the webhook
 	// WebhookTokenError is optional
 	WebhookTokenError string `json:"webhookTokenError"`
+
+	Owner string `json:"owner"`
 }
 
 // gw2Account holds the data returned by the gw2 api /v2/account endpoint
