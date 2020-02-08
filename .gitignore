@@ -20,3 +20,6 @@ botlog
 # vscode
 .vscode/
 debug
+
+# intellij
+.idea/

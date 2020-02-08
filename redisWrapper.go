@@ -211,6 +211,9 @@ func addUserKey(user string, key string) (erro error) {
 		return
 	}
 	loglevels.Infof("New user: %v", user)
-	updateUserChannel <- user
+	updateUserChannel <- struct {
+		string
+		bool
+	}{string: user, bool: true}
 	return
 }

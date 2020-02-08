@@ -14,7 +14,10 @@ import (
 
 var (
 	// updateUserChannel holds discord user ids to update
-	updateUserChannel chan string
+	updateUserChannel chan struct {
+		string
+		bool
+	}
 
 	// dg holds the discord bot session
 	dg *discordgo.Session
@@ -45,7 +48,10 @@ const (
 
 // starting up the bot part
 func startBot() {
-	updateUserChannel = make(chan string, 1000)
+	updateUserChannel = make(chan struct {
+		string
+		bool
+	}, 1000)
 	guildMembers = make(map[string]map[string]*discordgo.Member)
 
 	var err error
@@ -230,7 +236,10 @@ func updateAllUsers() {
 		for len(updateUserChannel) > 10 {
 			<-iterateThroughUsers
 		}
-		updateUserChannel <- userID
+		updateUserChannel <- struct {
+			string
+			bool
+		}{string: userID, bool: false}
 	}
 
 	userCount = iterateDatabase(redisConn, processValue)
@@ -363,12 +372,15 @@ func processMatchColor(worlds []int) {
 }
 
 // updateUser updates a single user on all discord servers
-func updateUser(userID string) {
+func updateUser(userID struct {
+	string
+	bool
+}) {
 	redisConn := guildsDatabase.Get()
 	defer closeConnection(redisConn)
 	name, worlds, err := getAccountData(userID)
 	processGuild := func(guild string) {
-		member, ok := guildMembers[guild][userID]
+		member, ok := guildMembers[guild][userID.string]
 		if ok {
 			updateUserDataInGuild(member, name, worlds, err == nil)
 		}
@@ -379,28 +391,40 @@ func updateUser(userID string) {
 
 // getAccountData gets the gw2 account data for a specific discord user
 // nolint: gocyclo
-func getAccountData(userID string) (name string, worlds []int, err error) {
-	keys, err := getAPIKeys(userID)
+func getAccountData(userID struct {
+	string
+	bool
+}) (name string, worlds []int, err error) {
+	keys, err := getAPIKeys(userID.string)
 	if err != nil {
 		return
 	}
 
+	i := -1
+	retries := 0
 	// for every api key ...
-	for _, key := range keys {
-
+	for i < len(keys)-1 {
+		i++
+		key := keys[i]
 		// get account data
 		account, erro := getGw2Account(key)
 		if erro != nil {
 			// if the key got revoked, delete it
 			if strings.Contains(erro.Error(), "invalid key") || strings.Contains(erro.Error(), "Invalid access token") {
-				loglevels.Infof("Encountered invalid key at %v", userID)
+				loglevels.Infof("Encountered invalid key at %v", userID.string)
 				redisConn := usersDatabase.Get()
-				_, erro = redisConn.Do("SREM", userID, key)
+				_, erro = redisConn.Do("SREM", userID.string, key)
 				closeConnection(redisConn)
 				if erro != nil {
 					loglevels.Errorf("Error deleting api key from redis: %v", erro)
 				}
 			} else {
+				if userID.bool && retries < 5 {
+					retries++
+					i--
+					<-time.After(delayBetweenUsers)
+					continue
+				}
 				loglevels.Warningf("Error getting account info: %v\n", erro)
 				// unexpected error, don't revoke discord roles because of a server error
 				err = erro
@@ -423,7 +447,10 @@ func getAccountData(userID string) (name string, worlds []int, err error) {
 
 // updateUserInGuild gets the account data and updates the user on a specific discord server
 func updateUserInGuild(member *discordgo.Member) {
-	name, worlds, err := getAccountData(member.User.ID)
+	name, worlds, err := getAccountData(struct {
+		string
+		bool
+	}{string: member.User.ID, bool: true})
 	updateUserDataInGuild(member, name, worlds, err == nil)
 }
 

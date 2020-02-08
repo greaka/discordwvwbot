@@ -285,7 +285,10 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	// sync the user on all discord servers
 	case syncUser:
 		loglevels.Infof("Sync user %v", user.ID)
-		updateUserChannel <- user.ID
+		updateUserChannel <- struct {
+			string
+			bool
+		}{string: user.ID, bool: true}
 
 	// save api key and update user
 	case addUser:
