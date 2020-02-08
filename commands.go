@@ -211,7 +211,14 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 	if err != nil {
 		errMes = err.Error()
 	}
-	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+"\nAccount names: "+userName+"\nworlds: "+worldNames+"\nerr: "+errMes)
+
+	us := m.Author
+	user, err := dg.User(userID)
+	if err != nil {
+		us = user
+	}
+
+	_, erro := dg.ChannelMessageSend(m.ChannelID, us.Mention()+"\nAccount names: "+userName+"\nworlds: "+worldNames+"\nerr: "+errMes)
 	if erro != nil {
 		loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 	}
