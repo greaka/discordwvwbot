@@ -181,16 +181,18 @@ func purgeGuild(m *discordgo.MessageCreate) {
 	}
 }
 
-func isOwner(userID string) bool {
-	return config.Owner == userID
-}
-
-func printUserWorlds(m *discordgo.MessageCreate, userID string) {
-	if !isOwner(m.Author.ID) {
+func isOwner(m *discordgo.MessageCreate) bool {
+	if config.Owner != m.Author.ID {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+", you need to be bot owner to use this command.")
 		if erro != nil {
 			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 		}
+	}
+	return config.Owner == m.Author.ID
+}
+
+func printUserWorlds(m *discordgo.MessageCreate, userID string) {
+	if !isOwner(m) {
 		return
 	}
 
@@ -214,11 +216,12 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 
 	us := m.Author
 	user, err := dg.User(userID)
-	if err != nil {
+	if user != nil {
 		us = user
 	}
 
-	_, erro := dg.ChannelMessageSend(m.ChannelID, us.Mention()+"\nAccount names: "+userName+"\nworlds: "+worldNames+"\nerr: "+errMes)
+	mention := us.Mention()
+	_, erro := dg.ChannelMessageSend(m.ChannelID, mention+"\naccount names: "+userName+"\nworlds: "+worldNames+"\nerr: "+errMes)
 	if erro != nil {
 		loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 	}
