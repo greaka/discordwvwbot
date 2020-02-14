@@ -446,16 +446,18 @@ func getAccountData(userID struct {
 }
 
 // updateUserInGuild gets the account data and updates the user on a specific discord server
-func updateUserInGuild(member *discordgo.Member) {
+func updateUserInGuild(member *discordgo.Member) (err error) {
 	name, worlds, err := getAccountData(struct {
 		string
 		bool
 	}{string: member.User.ID, bool: true})
-	updateUserDataInGuild(member, name, worlds, err == nil)
+
+	err = updateUserDataInGuild(member, name, worlds, err == nil)
+	return
 }
 
 // updateUserDataInGuild updates the user on a specific discord server
-func updateUserDataInGuild(member *discordgo.Member, name string, worlds []int, removeWorlds bool) {
+func updateUserDataInGuild(member *discordgo.Member, name string, worlds []int, removeWorlds bool) (err error) {
 	options, err := getGuildSettings(member.GuildID)
 	if err != nil {
 		return
@@ -473,22 +475,23 @@ func updateUserDataInGuild(member *discordgo.Member, name string, worlds []int, 
 	}
 
 	if options.RenameUsers {
-		dg.GuildMemberNickname(member.GuildID, member.User.ID, name) // nolint: errcheck, gosec
+		_ = dg.GuildMemberNickname(member.GuildID, member.User.ID, name) // nolint: errcheck, gosec
 	}
 
 	switch options.Mode {
 	case allServers:
-		updateUserToWorldsInGuild(member, worlds, removeWorlds, options, roles, guildRoles)
+		err = updateUserToWorldsInGuild(member, worlds, removeWorlds, options, roles, guildRoles)
 	case oneServer:
-		updateUserToVerifyInGuild(member, worlds, removeWorlds, options, options.Gw2ServerID, roles, guildRoles)
+		err = updateUserToVerifyInGuild(member, worlds, removeWorlds, options, options.Gw2ServerID, roles, guildRoles)
 	case userBased:
-		updateUserToUserBasedVerifyInGuild(member, worlds, removeWorlds, options, roles, guildRoles)
+		err = updateUserToUserBasedVerifyInGuild(member, worlds, removeWorlds, options, roles, guildRoles)
 	}
+	return
 }
 
 // updateUserToWorldsInGuild updates the world roles for the user in a specific guild
 // nolint: gocyclo
-func updateUserToWorldsInGuild(member *discordgo.Member, userWorlds []int, removeWorlds bool, options *guildOptions, roles []guildRole, guildRoles []*discordgo.Role) {
+func updateUserToWorldsInGuild(member *discordgo.Member, userWorlds []int, removeWorlds bool, options *guildOptions, roles []guildRole, guildRoles []*discordgo.Role) (err error) {
 	var wantedRoles []string
 
 	for _, world := range userWorlds {
@@ -509,7 +512,7 @@ func updateUserToWorldsInGuild(member *discordgo.Member, userWorlds []int, remov
 						ID:   role.ID,
 						Name: role.Name,
 					}
-					addGuildRole(member.GuildID, roleStruct) // nolint: errcheck, gosec
+					_ = addGuildRole(member.GuildID, roleStruct) // nolint: errcheck, gosec
 					roles = append(roles, roleStruct)
 					break
 				}
@@ -548,12 +551,13 @@ func updateUserToWorldsInGuild(member *discordgo.Member, userWorlds []int, remov
 				}
 			}
 			if !found {
-				createRoleAndAddToManaged(member.GuildID, world.Name) // nolint: errcheck, gosec
+				_, _, _ = createRoleAndAddToManaged(member.GuildID, world.Name) // nolint: errcheck, gosec
 			}
 		}
 	}
 
-	assignManagedRoles(member, roles, wantedRoles, removeWorlds)
+	err = assignManagedRoles(member, roles, wantedRoles, removeWorlds)
+	return
 }
 
 func createRole(guildID, name string) (newRole *discordgo.Role, err error) {
@@ -605,7 +609,7 @@ func removeRole(roleID string, member *discordgo.Member, remove bool) (err error
 	return
 }
 
-func assignManagedRoles(member *discordgo.Member, managedRoles []guildRole, wantedRoles []string, removeRoles bool) {
+func assignManagedRoles(member *discordgo.Member, managedRoles []guildRole, wantedRoles []string, removeRoles bool) (err error) {
 	var managedRolesOfUser []string
 	for _, role := range member.Roles {
 		for _, managedRole := range managedRoles {
@@ -619,19 +623,20 @@ func assignManagedRoles(member *discordgo.Member, managedRoles []guildRole, want
 	for _, role := range managedRolesOfUser {
 		index := indexOfString(role, wantedRoles)
 		if index == -1 {
-			removeRole(role, member, removeRoles) // nolint: gosec, errcheck
+			err = removeRole(role, member, removeRoles) // nolint: gosec, errcheck
 		} else {
 			wantedRoles = remove(wantedRoles, index)
 		}
 	}
 
 	for _, role := range wantedRoles {
-		addRole(role, member) // nolint: gosec, errcheck
+		err = addRole(role, member) // nolint: gosec, errcheck
 	}
+	return
 }
 
 // nolint: gocyclo
-func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWorlds bool, options *guildOptions, verifyWorld int, roles []guildRole, guildRoles []*discordgo.Role) {
+func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWorlds bool, options *guildOptions, verifyWorld int, roles []guildRole, guildRoles []*discordgo.Role) (erro error) {
 	var verifiedID string
 	var linkedID string
 	var wantedRoles []string
@@ -654,7 +659,7 @@ func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWor
 					Name: role.Name,
 				}
 				roles = append(roles, roleStruct)
-				erro := addGuildRole(member.GuildID, roleStruct)
+				erro = addGuildRole(member.GuildID, roleStruct)
 				if erro != nil {
 					loglevels.Warningf("Error adding existing verified role %v to managed roles: %v", role.ID, erro)
 				}
@@ -666,7 +671,7 @@ func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWor
 					Name: role.Name,
 				}
 				roles = append(roles, roleStruct)
-				erro := addGuildRole(member.GuildID, roleStruct)
+				erro = addGuildRole(member.GuildID, roleStruct)
 				if erro != nil {
 					loglevels.Warningf("Error adding existing linked role %v to managed roles: %v", role.ID, erro)
 				}
@@ -675,7 +680,7 @@ func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWor
 		if verifiedID == "" {
 			_, roleStruct, err := createRoleAndAddToManaged(member.GuildID, "WvW-Verified")
 			if err != nil {
-				return
+				return err
 			}
 			verifiedID = roleStruct.ID
 			roles = append(roles, roleStruct)
@@ -683,7 +688,7 @@ func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWor
 		if options.AllowLinked && linkedID == "" {
 			_, roleStruct, err := createRoleAndAddToManaged(member.GuildID, "WvW-Linked")
 			if err != nil {
-				return
+				return err
 			}
 			linkedID = roleStruct.ID
 			roles = append(roles, roleStruct)
@@ -706,13 +711,15 @@ func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWor
 		}
 	}
 
-	assignManagedRoles(member, roles, wantedRoles, removeWorlds)
+	erro = assignManagedRoles(member, roles, wantedRoles, removeWorlds)
+	return
 }
 
-func updateUserToUserBasedVerifyInGuild(member *discordgo.Member, worlds []int, removeWorlds bool, options *guildOptions, roles []guildRole, guildRoles []*discordgo.Role) {
+func updateUserToUserBasedVerifyInGuild(member *discordgo.Member, worlds []int, removeWorlds bool, options *guildOptions, roles []guildRole, guildRoles []*discordgo.Role) (err error) {
 	owner, err := getCachedGw2Account(options.Gw2AccountKey)
 	if err != nil {
 		return
 	}
-	updateUserToVerifyInGuild(member, worlds, removeWorlds, options, owner.World, roles, guildRoles)
+	err = updateUserToVerifyInGuild(member, worlds, removeWorlds, options, owner.World, roles, guildRoles)
+	return
 }
