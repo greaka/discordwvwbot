@@ -347,14 +347,18 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 		// check if api key is valid
 		token, err := getTokenInfo(key)
 		if err != nil {
-			writeToResponse(w, "Internal error, please try again or contact me.")
+			writeToResponse(w, "Error communicating with the gw2api, please try again or wait until the api is working again.")
 			return
 		}
 
 		// check if api key contains wvwbot
 		nameInLower := strings.ToLower(token.Name)
 		if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
-			writeToResponse(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name)
+			text := "This api key is named " + token.Name
+			if token.Name == "" {
+				text = "This api key does not have a name."
+			}
+			writeToResponse(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. %v\nPlease create a new key with a valid name", text)
 			return
 		}
 	}

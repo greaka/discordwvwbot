@@ -74,7 +74,11 @@ func addKey(m *discordgo.MessageCreate, key string) {
 	// check if api key contains wvwbot
 	nameInLower := strings.ToLower(token.Name)
 	if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
-		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" This api key is not valid. Make sure your key name contains 'wvwbot'. This api key is named %v", token.Name))
+		text := "This api key is named " + token.Name
+		if token.Name == "" {
+			text = "This api key does not have a name."
+		}
+		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" This api key is not valid. Make sure your key name contains 'wvwbot'. %v\nPlease create a new key with a valid name", text))
 		if erro != nil {
 			loglevels.Errorf("Failed to send invalid key message to user %v: %v", m.Author.ID, erro)
 		}

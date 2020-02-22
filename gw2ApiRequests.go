@@ -12,7 +12,12 @@ import (
 )
 
 func getTokenInfo(key string) (token tokenInfo, err error) {
+	retries := 0
 	err = gw2Request("/tokeninfo?access_token="+key, &token)
+	for err != nil && retries < 3 {
+		err = gw2Request("/tokeninfo?access_token="+key, &token)
+		retries += 1
+	}
 	return
 }
 
