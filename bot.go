@@ -34,6 +34,8 @@ var (
 	// guildMembers caches the guild members of all active discord servers
 	// guildMembers[guildID][userID]
 	guildMembers map[string]map[string]*discordgo.Member
+
+	listenKind bool
 )
 
 const (
@@ -97,13 +99,18 @@ func updateCycle() {
 }
 
 func statusListenTo() {
+	text := config.HostURL
+	listenKind = !listenKind
+	if listenKind {
+		text = ".wvw help"
+	}
 	// update discord status to "listening to <hosturl>"
 	status := discordgo.UpdateStatusData{
 		Status:    string(discordgo.StatusOnline),
 		AFK:       false,
 		IdleSince: nil,
 		Game: &discordgo.Game{
-			Name: config.HostURL,
+			Name: text,
 			Type: 2,
 		},
 	}
