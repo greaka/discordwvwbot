@@ -85,6 +85,13 @@ func addKey(m *discordgo.MessageCreate, key string) {
 		return
 	}
 
+	if indexOfString("progression", token.Permissions) == -1 {
+		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" This api key is not valid. Please give it the permission 'progression'"))
+		if erro != nil {
+			loglevels.Errorf("Failed to send invalid key message to user %v: %v", m.Author.ID, erro)
+		}
+	}
+
 	err = addUserKey(m.Author.ID, key)
 	if err != nil {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" %v", err))

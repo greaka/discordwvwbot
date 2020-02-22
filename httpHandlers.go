@@ -361,6 +361,10 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 			writeToResponse(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. %v\nPlease create a new key with a valid name", text)
 			return
 		}
+
+		if indexOfString("progression", token.Permissions) == -1 {
+			writeToResponse(w, "This api key is not valid. Please give it the permission 'progression'")
+		}
 	}
 
 	stateString, err := json.Marshal(state)
