@@ -26,7 +26,8 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		key := strings.Trim(mes[6:], " ")
 		addKey(m, key)
 	case strings.HasPrefix(mes, "purge"):
-		purgeGuild(m)
+		relink := strings.Trim(mes[5:], " ")
+		purgeGuild(m, relink)
 	case strings.HasPrefix(mes, "check"):
 		printUserWorlds(m, strings.Trim(mes[5:], " "))
 	case strings.HasPrefix(mes, "verify"):
@@ -105,7 +106,7 @@ func addKey(m *discordgo.MessageCreate, key string) {
 }
 
 // nolint: gocyclo
-func purgeGuild(m *discordgo.MessageCreate) {
+func purgeGuild(m *discordgo.MessageCreate, relink string) {
 	roles, allowed := isManagerOfRoles(m)
 	if !allowed {
 		return
@@ -115,6 +116,16 @@ func purgeGuild(m *discordgo.MessageCreate) {
 	if err != nil {
 		sendError(m)
 		return
+	}
+
+	if relink == "linked" {
+		for _, role := range authRoles {
+			if role.Name == "WvW-Linked" {
+				authRoles = authRoles[:0]
+				authRoles = append(authRoles, role)
+				break
+			}
+		}
 	}
 
 	tempMap := make(map[string]*discordgo.Member)
