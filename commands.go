@@ -48,6 +48,9 @@ func printHelp(m *discordgo.MessageCreate) {
 	> **purge**
 	removes roles from players that were manually verified
 
+	> **purge** linked
+	like purge, but only for linked servers
+
 	> **verify**
 	re-verifies you on all servers
 
