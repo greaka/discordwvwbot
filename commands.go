@@ -65,34 +65,11 @@ func printHelp(m *discordgo.MessageCreate) {
 func addKey(m *discordgo.MessageCreate, key string) {
 	_ = dg.ChannelMessageDelete(m.ChannelID, m.Message.ID) // nolint: errcheck, gosec
 
-	// check if api key is valid
-	token, err := getTokenInfo(key)
+	err := checkKey(key)
 	if err != nil {
-		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" error communicating with the gw2api, please try again or wait until the api is working again.")
+		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" %v", err))
 		if erro != nil {
-			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
-		}
-		return
-	}
-
-	// check if api key contains wvwbot
-	nameInLower := strings.ToLower(token.Name)
-	if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
-		text := "This api key is named " + token.Name
-		if token.Name == "" {
-			text = "This api key does not have a name."
-		}
-		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" This api key is not valid. Make sure your key name contains 'wvwbot'. %v\nPlease create a new key with a valid name", text))
-		if erro != nil {
-			loglevels.Errorf("Failed to send invalid key message to user %v: %v", m.Author.ID, erro)
-		}
-		return
-	}
-
-	if indexOfString("progression", token.Permissions) == -1 {
-		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" This api key is not valid. Please give it the permission 'progression'"))
-		if erro != nil {
-			loglevels.Errorf("Failed to send invalid key message to user %v: %v", m.Author.ID, erro)
+			loglevels.Errorf("Failed to send key error message to user %v: %v", m.Author.ID, erro)
 		}
 	}
 

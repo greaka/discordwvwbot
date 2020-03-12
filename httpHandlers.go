@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bwmarrin/discordgo"
+	"github.com/greaka/discordwvwbot/loglevels"
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
-
-	"github.com/bwmarrin/discordgo"
-	"github.com/greaka/discordwvwbot/loglevels"
 )
 
 // redirectToTLS is the handler function for http calls to get redirected to https
@@ -344,26 +342,10 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	default:
 		state.Reason = addUser
 		state.Data = key
-		// check if api key is valid
-		token, err := getTokenInfo(key)
+
+		err := checkKey(key)
 		if err != nil {
-			writeToResponse(w, "Error communicating with the gw2api, please try again or wait until the api is working again.")
-			return
-		}
-
-		// check if api key contains wvwbot
-		nameInLower := strings.ToLower(token.Name)
-		if !strings.Contains(nameInLower, "wvw") || !strings.Contains(nameInLower, "bot") {
-			text := "This api key is named " + token.Name
-			if token.Name == "" {
-				text = "This api key does not have a name."
-			}
-			writeToResponse(w, "This api key is not valid. Make sure your key name contains 'wvwbot'. %v\nPlease create a new key with a valid name", text)
-			return
-		}
-
-		if indexOfString("progression", token.Permissions) == -1 {
-			writeToResponse(w, "This api key is not valid. Please give it the permission 'progression'")
+			writeToResponse(w, err.Error())
 		}
 	}
 

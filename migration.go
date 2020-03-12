@@ -10,6 +10,7 @@ func migrateRedis() (err error) {
 	versionPool := newPool(dbTypeVersion)
 	guildsPool := newPool(dbTypeGuilds)
 	usersPool := newPool(dbTypeUsers)
+	uniquePool := newPool(dbGw2UsersToDiscordUsers)
 
 	vc := versionPool.Get()
 	defer closeConnection(vc)
@@ -42,6 +43,9 @@ func migrateRedis() (err error) {
 	}
 	if version == 2 {
 		version, err = migrateRedisFrom2To3(guildsPool)
+	}
+	if version == 3 {
+		version, err = migrateRedisFrom3To4(usersPool, uniquePool)
 	}
 
 	vc = versionPool.Get()
@@ -134,6 +138,16 @@ func migrateRedisFrom2To3(gp *redis.Pool) (version int, err error) {
 
 	version = 3
 	return
+}
+
+func migrateRedisFrom3To4(usp, unp *redis.Pool) (version int, err error) {
+	version = 3
+	usc := usp.Get()
+	defer closeConnection(usc)
+	unc := unp.Get()
+	defer closeConnection(unc)
+
+
 }
 
 func dumpRestoreAndDEL(source, target *redis.Pool, key string) (err error) {
