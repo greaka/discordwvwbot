@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/greaka/discordwvwbot/loglevels"
@@ -33,6 +34,10 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case strings.HasPrefix(mes, "verify"):
 		userID := strings.Trim(mes[6:], " ")
 		commandVerifyUser(m, userID)
+	case strings.HasPrefix(mes, "kill"):
+		if isOwner(m) {
+			os.Exit(1)
+		}
 	}
 }
 
@@ -65,12 +70,13 @@ func printHelp(m *discordgo.MessageCreate) {
 func addKey(m *discordgo.MessageCreate, key string) {
 	_ = dg.ChannelMessageDelete(m.ChannelID, m.Message.ID) // nolint: errcheck, gosec
 
-	err := checkKey(key)
+	err := checkKey(key, m.Author.ID)
 	if err != nil {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+fmt.Sprintf(" %v", err))
 		if erro != nil {
 			loglevels.Errorf("Failed to send key error message to user %v: %v", m.Author.ID, erro)
 		}
+		return
 	}
 
 	err = addUserKey(m.Author.ID, key)

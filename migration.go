@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/greaka/discordwvwbot/loglevels"
+	"time"
 )
 
 // nolint: ineffassign
@@ -142,12 +143,53 @@ func migrateRedisFrom2To3(gp *redis.Pool) (version int, err error) {
 
 func migrateRedisFrom3To4(usp, unp *redis.Pool) (version int, err error) {
 	version = 3
-	usc := usp.Get()
-	defer closeConnection(usc)
-	unc := unp.Get()
-	defer closeConnection(unc)
+	userc := usp.Get()
+	defer closeConnection(userc)
+	uniquec := unp.Get()
+	defer closeConnection(uniquec)
 
+	wait := time.Tick(delayBetweenUsers)
 
+	processValue := func(user string, keys []string) {
+		<-wait
+		i := -1
+		// for every api key ...
+		for i < len(keys)-1 {
+			i++
+			key := keys[i]
+			acc, erro := getCheckedGw2Account(key, struct {
+				string
+				bool
+			}{string: user, bool: true})
+			if erro != nil {
+				continue
+			}
+
+			userID, erro := checkUnique(acc.ID, user, false)
+			if erro != nil && erro.Error() == AlreadyTaken {
+				// remove key
+				redisConn := usersDatabase.Get()
+				_, erro = redisConn.Do("SREM", user, key)
+				closeConnection(redisConn)
+				if erro != nil {
+					loglevels.Errorf("Error deleting api key from redis: %v", erro)
+				}
+				// notify user
+				ch, erro := dg.UserChannelCreate(user)
+				if erro != nil {
+					loglevels.Errorf("Failed to create dm channel with user %v: %v", user, erro)
+					continue
+				}
+				_, erro = dg.ChannelMessageSend(ch.ID, `
+From now on, this bot only allows one discord user to verify with the same gw2 account.
+You share the account `+acc.Name+` with <@`+userID+`> and the api key was removed from your discord account.
+If you wish to verify this discord account, then create a new api key, name it `+"`wvwbot "+user+"` and add the new key to the bot.")
+			}
+		}
+	}
+	smembersallkeys(userc, processValue)
+	version = 4
+	return
 }
 
 func dumpRestoreAndDEL(source, target *redis.Pool, key string) (err error) {

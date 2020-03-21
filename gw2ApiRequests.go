@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/greaka/discordwvwbot/loglevels"
@@ -21,6 +22,43 @@ func getTokenInfo(key string) (token tokenInfo, err error) {
 	return
 }
 
+// used by migration
+func getCheckedGw2Account(key string, userID struct {
+	string
+	bool
+}) (account gw2Account, err error) {
+	retries := 0
+	account, erro := getGw2Account(key)
+	if erro != nil {
+		invalid := func() bool {
+			return strings.Contains(erro.Error(), "invalid key") || strings.Contains(erro.Error(), "Invalid access token")
+		}
+
+		for (userID.bool || invalid()) && retries < 5 {
+			retries++
+			<-time.After(delayBetweenUsers)
+			account, erro = getGw2Account(key)
+			if erro == nil {
+				return
+			}
+		}
+		// if the key got revoked, delete it
+		if invalid() {
+			loglevels.Infof("Encountered invalid key at %v", userID.string)
+			redisConn := usersDatabase.Get()
+			_, erro = redisConn.Do("SREM", userID.string, key)
+			closeConnection(redisConn)
+			if erro != nil {
+				loglevels.Errorf("Error deleting api key from redis: %v", erro)
+			}
+		}
+		loglevels.Warningf("Error getting account info: %v\n", erro)
+		// unexpected error, don't revoke discord roles because of a server error
+		err = erro
+	}
+	return
+}
+
 func getGw2Account(key string) (account gw2Account, err error) {
 	err = gw2Request("/account?access_token="+key, &account)
 	return
@@ -29,7 +67,7 @@ func getGw2Account(key string) (account gw2Account, err error) {
 func getCachedGw2Account(key string) (account gw2Account, err error) {
 	expire := int(delayBetweenFullUpdates.Seconds()) // delayBetweenFullUpdates will be set after the first run
 	if expire == 0 {
-		expire = 15 * 60 // 15 min * 60
+		expire = 15 * 60 // 15 min
 	}
 	err = cacheGw2Request("/account?access_token="+key, key, "gw2Account", expire, &account)
 	return

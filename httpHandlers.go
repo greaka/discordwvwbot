@@ -290,6 +290,11 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// save api key and update user
 	case addUser:
+		err = checkKey(oauthReason.Data, user.ID)
+		if err != nil {
+			writeToResponse(w, fmt.Sprintf("%v", err))
+			return
+		}
 		err = addUserKey(user.ID, oauthReason.Data)
 		if err != nil {
 			writeToResponse(w, fmt.Sprintf("%v", err))
@@ -342,11 +347,6 @@ func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	default:
 		state.Reason = addUser
 		state.Data = key
-
-		err := checkKey(key)
-		if err != nil {
-			writeToResponse(w, err.Error())
-		}
 	}
 
 	stateString, err := json.Marshal(state)

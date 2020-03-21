@@ -102,11 +102,11 @@ func main() {
 		loglevels.SetWriter(loglevels.LevelError, w)
 	}
 
+	initializeRedisPools()
+
 	if err = migrateRedis(); err != nil {
 		os.Exit(1)
 	}
-
-	initializeRedisPools()
 
 	// starting up the bot part
 	go startBot()

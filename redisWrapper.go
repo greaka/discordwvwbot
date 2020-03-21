@@ -9,6 +9,10 @@ import (
 	"github.com/greaka/discordwvwbot/loglevels"
 )
 
+const (
+	AlreadyTaken = "this gw2 account was already used by another discord user"
+)
+
 func getAPIKeys(userID string) (keys []string, err error) {
 	redisConn := usersDatabase.Get()
 	// get all api keys of the user
@@ -57,6 +61,71 @@ func iterateDatabase(redisConn redis.Conn, processValue func(string)) (valueCoun
 	return
 }
 
+/// returns userID of user that already uses this acc and not ok if user != userID
+func checkUnique(acc string, user string, force bool) (userID string, err error) {
+	rc := uniqueUsersDatabase.Get()
+	defer closeConnection(rc)
+	userID, err = redis.String(rc.Do("GET", acc))
+	if err != nil && err.Error() != "redigo: nil returned" {
+		loglevels.Errorf("Error getting unique acc %v from redis: %v\n", acc, err)
+		return
+	}
+	if userID == "" || force {
+		_, err = rc.Do("SET", acc, user)
+		if err != nil {
+			loglevels.Errorf("Error saving unique acc %v to user %v: %v\n", acc, user, err)
+		}
+	} else {
+		if user != userID {
+			err = errors.New(AlreadyTaken)
+		}
+	}
+	return
+}
+
+// keep in mind that this is called from migration, so look if you break migration if you change something here
+/// this uses keys *, please consider twice if you need it
+func smembersallkeys(redisConn redis.Conn, processValue func(string, []string)) (keyCount int, valueCount int) {
+	valueCount = 0
+
+	scan, err := redis.Values(redisConn.Do("KEYS", "*"))
+	if err != nil {
+		loglevels.Errorf("Error getting keys from redis: %v\n", err)
+		return
+	}
+
+	var allKeys []string
+	err = redis.ScanSlice(scan, &allKeys)
+	if err != nil {
+		loglevels.Errorf("Error converting all keys to []string: %v\n", err)
+		return
+	}
+
+	keyCount = len(allKeys)
+	i := -1
+	for i < len(allKeys)-1 {
+		i++
+		key := allKeys[i]
+
+		scanValues, err := redis.Values(redisConn.Do("SMEMBERS", key))
+		if err != nil {
+			loglevels.Errorf("Error getting values from redis: %v\n", err)
+			return
+		}
+
+		var values []string
+		err = redis.ScanSlice(scanValues, &values)
+		if err != nil {
+			loglevels.Errorf("Error converting values to []string: %v\n", err)
+			return
+		}
+
+		valueCount += len(values)
+		processValue(key, values)
+	}
+	return
+}
+
 // keep in mind that this is called from migration, so look if you break migration if you change something here
 func saveNewGuild(gc redis.Conn, guild string) (err error) {
 	options := guildOptions{
@@ -95,6 +164,7 @@ func saveGuildSettings(guildID string, s *guildOptions) (err error) {
 
 	c := guildsDatabase.Get()
 	_, err = redis.String(c.Do("SET", guildID, settingsString))
+	closeConnection(c)
 	if err != nil {
 		loglevels.Errorf("Error setting options for guild %v: %v\n", guildID, err)
 		return
@@ -105,6 +175,7 @@ func saveGuildSettings(guildID string, s *guildOptions) (err error) {
 func getGuildSettings(guildID string) (s *guildOptions, err error) {
 	c := guildsDatabase.Get()
 	settingsString, err := redis.String(c.Do("GET", guildID))
+	closeConnection(c)
 	if err != nil {
 		loglevels.Errorf("Error getting options for guild %v: %v\n", guildID, err)
 		return

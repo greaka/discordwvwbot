@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/greaka/discordwvwbot/loglevels"
@@ -389,7 +388,7 @@ func updateUser(userID struct {
 	processGuild := func(guild string) {
 		member, ok := guildMembers[guild][userID.string]
 		if ok {
-			updateUserDataInGuild(member, name, worlds, err == nil)
+			_ = updateUserDataInGuild(member, name, worlds, err == nil)
 		}
 	}
 
@@ -408,34 +407,14 @@ func getAccountData(userID struct {
 	}
 
 	i := -1
-	retries := 0
 	// for every api key ...
 	for i < len(keys)-1 {
 		i++
 		key := keys[i]
 		// get account data
-		account, erro := getGw2Account(key)
+		account, erro := getCheckedGw2Account(key, userID)
 		if erro != nil {
-			// if the key got revoked, delete it
-			if strings.Contains(erro.Error(), "invalid key") || strings.Contains(erro.Error(), "Invalid access token") {
-				loglevels.Infof("Encountered invalid key at %v", userID.string)
-				redisConn := usersDatabase.Get()
-				_, erro = redisConn.Do("SREM", userID.string, key)
-				closeConnection(redisConn)
-				if erro != nil {
-					loglevels.Errorf("Error deleting api key from redis: %v", erro)
-				}
-			} else {
-				if userID.bool && retries < 5 {
-					retries++
-					i--
-					<-time.After(delayBetweenUsers)
-					continue
-				}
-				loglevels.Warningf("Error getting account info: %v\n", erro)
-				// unexpected error, don't revoke discord roles because of a server error
-				err = erro
-			}
+			err = erro
 			continue
 		}
 
@@ -445,7 +424,7 @@ func getAccountData(userID struct {
 		// add world to users worlds
 		worlds = append(worlds, account.World)
 	}
-	// strip the first " | ", on unexpeceted erros the name can still be empty
+	// strip the first " | ", on unexpected errors the name can still be empty
 	if len(name) >= 3 {
 		name = name[3:]
 	}
