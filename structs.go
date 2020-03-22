@@ -141,6 +141,8 @@ type guildOptions struct {
 	VerifyOnly bool `json:"verifyOnly"`
 	// kick all users from linked servers role when linking changes
 	DeleteLinked bool `json:"deleteLinked"`
+	// the minimum rank required to be verified
+	MinimumRank int `json:"minimumRank"`
 }
 
 // dashboardTemplate holds all infos about a discord servers bot settings and options
@@ -154,6 +156,7 @@ type dashboardTemplate struct {
 	AllowLinked    bool              `json:"allowLinked"`
 	VerifyOnly     bool              `json:"verifyOnly"`
 	DeleteLinked   bool              `json:"deleteLinked"`
+	MinimumRank    int               `json:"minimumRank"`
 }
 
 // serversTemplate holds infos about gw2 or discord servers
@@ -196,8 +199,15 @@ type oauthState struct {
 	Data   string     `json:"data"`
 }
 
+type worldWithRank struct {
+	ID int
+	rank int
+}
+
+type gw2AccountData struct {
+	Name string
+	Worlds []worldWithRank
+}
+
 // TODO:
-//   - error handling on update current worlds
-//   - update user to worlds in guild, indexof duplicate
 //   - delete linked / saving worlds
-//   - creating roles / saving role ids

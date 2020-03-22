@@ -170,6 +170,14 @@ func processSubmitData(r *http.Request) (err error) {
 	}
 	options.Mode = mode(mod)
 
+
+	rank, err := strconv.Atoi(r.FormValue("min-rank"))
+	if err != nil {
+		loglevels.Warningf("Error converting rank from dashboard submit: %v\n", err)
+		return
+	}
+	options.MinimumRank = rank
+
 	if r.FormValue("rename-users") == "on" {
 		options.RenameUsers = true
 	}

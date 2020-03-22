@@ -115,5 +115,6 @@ func mergeToDashboardTemplate(options *guildOptions, worlds, guilds []serversTem
 		Mode:           options.Mode,
 		RenameUsers:    options.RenameUsers,
 		VerifyOnly:     options.VerifyOnly,
+		MinimumRank:    options.MinimumRank,
 	}
 }

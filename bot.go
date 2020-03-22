@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -361,9 +362,11 @@ func updateCurrentWorlds() {
 	loglevels.Info("Finished updating worlds")
 
 	loglevels.Info("Current Links:")
+	worldList := ""
 	for _, world := range currentWorlds {
-		loglevels.Infof("%v", world)
+		worldList += "\n" + fmt.Sprintf("%v", world)
 	}
+	loglevels.Infof("%v", worldList)
 }
 
 func processMatchColor(worlds []int) {
@@ -384,11 +387,11 @@ func updateUser(userID struct {
 }) {
 	redisConn := guildsDatabase.Get()
 	defer closeConnection(redisConn)
-	name, worlds, err := getAccountData(userID)
+	data, err := getAccountData(userID)
 	processGuild := func(guild string) {
 		member, ok := guildMembers[guild][userID.string]
 		if ok {
-			_ = updateUserDataInGuild(member, name, worlds, err == nil)
+			_ = updateUserDataInGuild(member, data, err == nil)
 		}
 	}
 
@@ -400,7 +403,11 @@ func updateUser(userID struct {
 func getAccountData(userID struct {
 	string
 	bool
-}) (name string, worlds []int, err error) {
+}) (data gw2AccountData, err error) {
+	data = gw2AccountData{
+		Name:   "",
+		Worlds: []worldWithRank{},
+	}
 	keys, err := getAPIKeys(userID.string)
 	if err != nil {
 		return
@@ -419,31 +426,34 @@ func getAccountData(userID struct {
 		}
 
 		// add the name to the account names
-		name += " | " + account.Name
+		data.Name += " | " + account.Name
 
 		// add world to users worlds
-		worlds = append(worlds, account.World)
+		data.Worlds = append(data.Worlds, worldWithRank{
+			ID:   account.World,
+			rank: account.WvWRank,
+		})
 	}
 	// strip the first " | ", on unexpected errors the name can still be empty
-	if len(name) >= 3 {
-		name = name[3:]
+	if len(data.Name) >= 3 {
+		data.Name = data.Name[3:]
 	}
 	return
 }
 
 // updateUserInGuild gets the account data and updates the user on a specific discord server
 func updateUserInGuild(member *discordgo.Member) (err error) {
-	name, worlds, err := getAccountData(struct {
+	data, err := getAccountData(struct {
 		string
 		bool
 	}{string: member.User.ID, bool: true})
 
-	err = updateUserDataInGuild(member, name, worlds, err == nil)
+	err = updateUserDataInGuild(member, data, err == nil)
 	return
 }
 
 // updateUserDataInGuild updates the user on a specific discord server
-func updateUserDataInGuild(member *discordgo.Member, name string, worlds []int, removeWorlds bool) (err error) {
+func updateUserDataInGuild(member *discordgo.Member, data gw2AccountData, removeWorlds bool) (err error) {
 	options, err := getGuildSettings(member.GuildID)
 	if err != nil {
 		return
@@ -460,8 +470,19 @@ func updateUserDataInGuild(member *discordgo.Member, name string, worlds []int, 
 		return
 	}
 
+	var worlds []int
+	for _, world := range data.Worlds {
+		if world.rank >= options.MinimumRank {
+			worlds = append(worlds, world.ID)
+		}
+	}
+	if len(worlds) == 0 {
+		err = errors.New(fmt.Sprintf("No account from <@%v> meets the wvw rank requirement of this server", member.User.ID))
+		return
+	}
+
 	if options.RenameUsers {
-		_ = dg.GuildMemberNickname(member.GuildID, member.User.ID, name) // nolint: errcheck, gosec
+		_ = dg.GuildMemberNickname(member.GuildID, member.User.ID, data.Name) // nolint: errcheck, gosec
 	}
 
 	switch options.Mode {

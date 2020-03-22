@@ -81,8 +81,13 @@
 
             <h3>Server Settings</h3>
 
-            <input type="checkbox" id="rename-users" name="rename-users" {{if .RenameUsers}}checked{{end}}>
-            <label for="rename-users">Rename users to their Gw2 account names</label>
+            <input type="number" id="min-rank" name="min-rank" value="{{.MinimumRank}}" style="width: 47px;">
+            <label for="min-rank">The minimum wvw rank required to be eligible for verifying</label>
+
+            <div class="spacer">
+                <input type="checkbox" id="rename-users" name="rename-users" {{if .RenameUsers}}checked{{end}}>
+                <label for="rename-users">Rename users to their Gw2 account names</label>
+            </div>
 
             <div class="mode-based all-servers spacer">
                 <input type="checkbox" id="create-all" name="create-all" {{if .CreateRoles}}checked{{end}}>

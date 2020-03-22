@@ -41,12 +41,27 @@ func migrateRedis() (err error) {
 
 	if version == 1 {
 		version, err = migrateRedisFrom1To2(usersPool, guildsPool, versionPool)
+		if err != nil {
+			return
+		}
 	}
 	if version == 2 {
 		version, err = migrateRedisFrom2To3(guildsPool)
+		if err != nil {
+			return
+		}
 	}
 	if version == 3 {
 		version, err = migrateRedisFrom3To4(usersPool, uniquePool)
+		if err != nil {
+			return
+		}
+	}
+	if version == 4 {
+		version, err = migrateRedisFrom4To5(guildsPool)
+		if err != nil {
+			return
+		}
 	}
 
 	vc = versionPool.Get()
@@ -189,6 +204,36 @@ If you wish to verify this discord account, then create a new api key, name it `
 	}
 	smembersallkeys(userc, processValue)
 	version = 4
+	return
+}
+
+func migrateRedisFrom4To5(gp *redis.Pool) (version int, err error) {
+	version = 4
+	gc := gp.Get()
+	defer closeConnection(gc)
+
+	processValue := func(guild string) {
+		var settings *guildOptions
+		settings, err = getGuildSettings(guild)
+		if err != nil {
+			loglevels.Errorf("Error getting guild while trying to migrate from 4 to 5: %v\n", err)
+			return
+		}
+		settings.MinimumRank = 0
+		err = saveGuildSettings(guild, settings)
+		if err != nil {
+			loglevels.Errorf("Error saving guild while trying to migrate from 4 to 5: %v\n", err)
+			return
+		}
+	}
+
+	iterateDatabase(gc, processValue)
+
+	if err != nil {
+		return
+	}
+
+	version = 5
 	return
 }
 

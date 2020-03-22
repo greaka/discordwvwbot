@@ -208,17 +208,22 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 		return
 	}
 
-	userName, worlds, err := getAccountData(struct {
+	data, err := getAccountData(struct {
 		string
 		bool
 	}{string: userID, bool: true})
 
 	worldNames := ""
-	for _, world := range worlds {
-		worldNames += " | " + currentWorlds[world].Name
+	worldRanks := ""
+	for _, world := range data.Worlds {
+		worldNames += " | " + currentWorlds[world.ID].Name
+		worldRanks += " | " + fmt.Sprintf("%v", world.rank)
 	}
 	if len(worldNames) >= 3 {
 		worldNames = worldNames[3:]
+	}
+	if len(worldRanks) >= 3 {
+		worldRanks = worldRanks[3:]
 	}
 
 	errMes := "nil"
@@ -233,7 +238,7 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 	}
 
 	mention := us.Mention()
-	_, erro := dg.ChannelMessageSend(m.ChannelID, mention+"\naccount names: "+userName+"\nworlds: "+worldNames+"\nerr: "+errMes)
+	_, erro := dg.ChannelMessageSend(m.ChannelID, mention+"\naccount names: "+data.Name+"\nworlds: "+worldNames+"\nranks: "+worldRanks+"\nerr: "+errMes)
 	if erro != nil {
 		loglevels.Errorf("Failed to send info message to user %v: %v", m.Author.ID, erro)
 	}
@@ -263,7 +268,7 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 	member.GuildID = m.GuildID
 	err = updateUserInGuild(member)
 	if err != nil {
-		sendError(m)
+		sendErrorMes(m, err.Error())
 		return
 	}
 	sendSuccess(m)
@@ -271,6 +276,13 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 
 func sendError(m *discordgo.MessageCreate) {
 	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" Internal error, please try again or contact me.")
+	if erro != nil {
+		loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
+	}
+}
+
+func sendErrorMes(m *discordgo.MessageCreate, mes string) {
+	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" " + mes)
 	if erro != nil {
 		loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 	}

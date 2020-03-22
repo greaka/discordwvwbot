@@ -137,6 +137,7 @@ func saveNewGuild(gc redis.Conn, guild string) (err error) {
 		AllowLinked:   false,
 		VerifyOnly:    false,
 		DeleteLinked:  false,
+		MinimumRank:   0,
 	}
 	loglevels.Infof("New guild: %v\n", guild)
 
