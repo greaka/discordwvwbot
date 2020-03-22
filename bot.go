@@ -425,6 +425,19 @@ func getAccountData(userID struct {
 			continue
 		}
 
+		_, erro = checkUnique(account.ID, userID.string, false)
+		if erro != nil {
+			if erro.Error() == AlreadyTaken {
+				redisConn := usersDatabase.Get()
+				_, erro := redisConn.Do("SREM", userID.string, key)
+				closeConnection(redisConn)
+				if erro != nil {
+					loglevels.Errorf("Error deleting api key from redis: %v", erro)
+				}
+			}
+			continue
+		}
+
 		// add the name to the account names
 		data.Name += " | " + account.Name
 

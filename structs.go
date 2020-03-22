@@ -200,12 +200,12 @@ type oauthState struct {
 }
 
 type worldWithRank struct {
-	ID int
+	ID   int
 	rank int
 }
 
 type gw2AccountData struct {
-	Name string
+	Name   string
 	Worlds []worldWithRank
 }
 

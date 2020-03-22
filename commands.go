@@ -282,7 +282,7 @@ func sendError(m *discordgo.MessageCreate) {
 }
 
 func sendErrorMes(m *discordgo.MessageCreate, mes string) {
-	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" " + mes)
+	_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" "+mes)
 	if erro != nil {
 		loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
 	}

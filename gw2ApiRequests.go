@@ -28,7 +28,8 @@ func getCheckedGw2Account(key string, userID struct {
 	bool
 }) (account gw2Account, err error) {
 	retries := 0
-	account, erro := getGw2Account(key)
+	var erro error
+	account, erro = getGw2Account(key)
 	if erro != nil {
 		invalid := func() bool {
 			return strings.Contains(erro.Error(), "invalid key") || strings.Contains(erro.Error(), "Invalid access token")
