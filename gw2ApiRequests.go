@@ -122,30 +122,44 @@ func getWorlds() (worlds []worldStruct, err error) {
 }
 
 func gw2Request(endpoint string, result interface{}) (err error) {
-	// get data
-	res, err := http.Get(gw2APIURL + endpoint)
-	if err != nil {
-		loglevels.Errorf("Error getting %v: %v\n", endpoint, err)
-		return
-	}
-	defer func() {
-		if erro := res.Body.Close(); erro != nil {
-			loglevels.Errorf("Error closing response body: %v\n", erro)
+	var resx *http.Response
+	for {
+		// get data
+		var res *http.Response
+		res, err = http.Get(gw2APIURL + endpoint)
+		if err != nil {
+			loglevels.Errorf("Error getting %v: %v\n", endpoint, err)
+			return
 		}
-	}()
+		defer func() {
+			if erro := res.Body.Close(); erro != nil {
+				loglevels.Errorf("Error closing response body: %v\n", erro)
+			}
+		}()
 
-	if res.StatusCode >= 300 {
-		errorString, _ := ioutil.ReadAll(res.Body) // nolint: gosec
-		err = errors.New(string(errorString))
-		return
+		if res.StatusCode >= 300 {
+			errorString, _ := ioutil.ReadAll(res.Body) // nolint: gosec
+			s := string(errorString[:])
+			if s == `{"text":"too many requests"}` {
+				loglevels.Warning("hit rate limit")
+				timeout := time.After(time.Minute)
+				<-timeout
+				continue
+			}
+			err = errors.New(string(errorString))
+			return
+		}
+
+		resx = res
+		break
 	}
 
 	// parse
-	jsonParser := json.NewDecoder(res.Body)
+	jsonParser := json.NewDecoder(resx.Body)
 	err = jsonParser.Decode(result)
 	if err != nil {
-		if res.StatusCode >= 500 {
-			loglevels.Warningf("Internal api server error: %v\n", res.Status)
+		if resx.StatusCode >= 500 {
+			loglevels.Warningf("Internal api server error: %v\n", resx.Status)
 		} else {
 			loglevels.Errorf("Error parsing json to %v data: %v\n", endpoint, err)
 		}
