@@ -35,7 +35,7 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		userID := strings.Trim(mes[6:], " ")
 		commandVerifyUser(m, userID)
 	case strings.HasPrefix(mes, "kill"):
-		if isOwner(m) {
+		if isOwner(m, true) {
 			os.Exit(1)
 		}
 	}
@@ -61,6 +61,9 @@ func printHelp(m *discordgo.MessageCreate) {
 
 	> **verify** `+"`discordUserId`"+`
 	verifies a user in your discord server. Needs manage roles permission
+
+	> **check** `+"`discordUserId`"+`
+	shows the worlds, account names and wvw ranks of the user. Needs manage roles permission
 	`)
 	if err != nil {
 		loglevels.Errorf("Failed to send help message to user %v: %v", m.Author.ID, err)
@@ -93,7 +96,7 @@ func addKey(m *discordgo.MessageCreate, key string) {
 
 // nolint: gocyclo
 func purgeGuild(m *discordgo.MessageCreate, relink string) {
-	roles, allowed := isManagerOfRoles(m)
+	roles, allowed := isManagerOfRoles(m, true)
 	if !allowed {
 		return
 	}
@@ -156,7 +159,7 @@ func purgeGuild(m *discordgo.MessageCreate, relink string) {
 	sendSuccess(m)
 }
 
-func isManagerOfRoles(m *discordgo.MessageCreate) (roles []*discordgo.Role, found bool) {
+func isManagerOfRoles(m *discordgo.MessageCreate, sendOnFailure bool) (roles []*discordgo.Role, found bool) {
 	member := m.Member
 	roles, err := dg.GuildRoles(m.GuildID)
 	if err != nil {
@@ -184,7 +187,7 @@ func isManagerOfRoles(m *discordgo.MessageCreate) (roles []*discordgo.Role, foun
 			break
 		}
 	}
-	if !found {
+	if !found && sendOnFailure {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+", you are missing the permission `Manage Roles` to perform this operation.")
 		if erro != nil {
 			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
@@ -193,8 +196,8 @@ func isManagerOfRoles(m *discordgo.MessageCreate) (roles []*discordgo.Role, foun
 	return
 }
 
-func isOwner(m *discordgo.MessageCreate) bool {
-	if config.Owner != m.Author.ID {
+func isOwner(m *discordgo.MessageCreate, sendOnFailure bool) bool {
+	if config.Owner != m.Author.ID && sendOnFailure {
 		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+", you need to be bot owner to use this command.")
 		if erro != nil {
 			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
@@ -204,7 +207,24 @@ func isOwner(m *discordgo.MessageCreate) bool {
 }
 
 func printUserWorlds(m *discordgo.MessageCreate, userID string) {
-	if !isOwner(m) {
+	allowed := false
+	if isOwner(m, false) {
+		allowed = true
+	}
+	_, manager := isManagerOfRoles(m, false)
+	if manager {
+		_, ok := guildMembers[m.GuildID][userID]
+		if ok {
+			allowed = true
+		} else {
+			_, _ = dg.ChannelMessageSend(m.ChannelID, "<@"+userID+"> is not a user in your discord server.")
+		}
+	}
+	if !allowed {
+		_, erro := dg.ChannelMessageSend(m.ChannelID, m.Author.Mention()+", you have not enough permissions to use this command.")
+		if erro != nil {
+			loglevels.Errorf("Failed to send error message to user %v: %v", m.Author.ID, erro)
+		}
 		return
 	}
 
@@ -254,7 +274,7 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 		return
 	}
 
-	_, allowed := isManagerOfRoles(m)
+	_, allowed := isManagerOfRoles(m, true)
 	if !allowed {
 		return
 	}
