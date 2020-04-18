@@ -69,7 +69,12 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 			writeToResponse(w, "You share no discord server with this bot.")
 			return
 		}
+		i := 1
 		guild = guilds[0].ID
+		for !checkUserIsMember(guild, guilds) {
+			guild = guilds[i].ID
+			i = i + 1;
+		}
 	} else {
 		if !checkUserIsMember(guild, guilds) {
 			loglevels.Warningf("User %v tried to access dashboard setting from guild %v while missing the needed permissions.\n", userid, guild)

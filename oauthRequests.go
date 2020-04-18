@@ -179,6 +179,7 @@ func getDiscordServers(userID string) (result []discordgo.UserGuild, err error) 
 	}
 
 	// convert returned string to []string
+	//todo performance
 	var guildIds []string
 	err = redis.ScanSlice(keys, &guildIds)
 	if err != nil {
