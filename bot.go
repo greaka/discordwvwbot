@@ -19,6 +19,8 @@ var (
 		bool
 	}
 
+	bucket chan interface{}
+
 	// dg holds the discord bot session
 	dg *discordgo.Session
 
@@ -55,6 +57,7 @@ func startBot() {
 		bool
 	}, 1000)
 	guildMembers = make(map[string]map[string]*discordgo.Member)
+	go fillBucket()
 
 	var err error
 
@@ -89,6 +92,23 @@ func startBot() {
 	}
 
 	updateCycle()
+}
+
+func fillBucket() {
+	bucket = make(chan interface{}, 300)
+	rate := time.Tick(time.Second)
+	for i := 0; i < 300; i++ {
+		bucket <- nil
+	}
+	for {
+		<-rate
+		for i := 0; i < 5; i++ {
+			select {
+			case bucket <- nil:
+			default:
+			}
+		}
+	}
 }
 
 func updateCycle() {
@@ -239,7 +259,6 @@ func updateAllUsers() {
 	defer closeConnection(redisConn)
 	iterateThroughUsers := time.Tick(delayBetweenUsers)
 	processValue := func(userID string) {
-		<-iterateThroughUsers
 		for len(updateUserChannel) > 10 {
 			<-iterateThroughUsers
 		}

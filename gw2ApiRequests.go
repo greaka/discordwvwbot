@@ -126,6 +126,7 @@ func gw2Request(endpoint string, result interface{}) (err error) {
 	for {
 		// get data
 		var res *http.Response
+		<-bucket
 		res, err = http.Get(gw2APIURL + endpoint)
 		if err != nil {
 			loglevels.Errorf("Error getting %v: %v\n", endpoint, err)
