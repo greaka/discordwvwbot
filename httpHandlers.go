@@ -71,7 +71,7 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		i := 1
 		guild = guilds[0].ID
-		for !checkUserIsMember(guild, guilds) {
+		for i < len(guilds) && !checkUserIsMember(guild, guilds) {
 			guild = guilds[i].ID
 			i = i + 1;
 		}
