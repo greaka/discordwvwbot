@@ -239,19 +239,15 @@ func processSubmitData(r *http.Request) (err error) {
 // nolint: gocyclo
 func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
-	loglevels.Info("New auth callback")
 	state := r.FormValue("state")
 	// request oauth access with the issue data sent by discord
-	loglevels.Info("get oauth token...")
 	token, err := getOAuthToken(r, w)
 	if err != nil {
 		loglevels.Info("error in oauth")
 		return
 	}
-	loglevels.Info("got oauth token")
 
 	// get discord id
-	loglevels.Info("get discord user id")
 	user, err := setDiscordUser(token.AccessToken)
 	if err != nil {
 		loglevels.Info("error getting discord user id")
@@ -260,7 +256,6 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	loglevels.Infof("got dicsord user id %v", user.ID)
 
-	loglevels.Info("unmarshaling state string...")
 	var oauthReason oauthState
 	err = json.Unmarshal([]byte(state), &oauthReason)
 	if err != nil {
@@ -269,8 +264,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		writeToResponse(w, "Internal error, please try again or contact me.")
 		return
 	}
-	loglevels.Infof("unmarshaled state string. request reason: %v", oauthReason.Reason)
-	loglevels.Info("Reasons: 1=addUser	2=syncUser 3=deleteKeys 4=useDashboard")
+	loglevels.Infof("unmarshaled state string. request reason: %v\nReasons: 1=addUser	2=syncUser 3=deleteKeys 4=useDashboard", oauthReason.Reason)
 
 	switch oauthReason.Reason {
 
