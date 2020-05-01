@@ -140,11 +140,16 @@ func gw2Request(endpoint string, result interface{}) (err error) {
 
 		if res.StatusCode >= 300 {
 			errorString, _ := ioutil.ReadAll(res.Body) // nolint: gosec
-			s := string(errorString[:])
-			if s == `{"text":"too many requests"}` {
+			if res.StatusCode == 429 {
 				loglevels.Warning("hit rate limit")
-				timeout := time.After(time.Minute)
-				<-timeout
+				for {
+					select {
+					case <-bucket:
+					default:
+						<-bucket
+						break
+					}
+				}
 				continue
 			}
 			err = errors.New(string(errorString))
