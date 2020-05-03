@@ -95,14 +95,14 @@ func startBot() {
 }
 
 func fillBucket() {
-	bucket = make(chan interface{}, 300)
+	bucket = make(chan interface{}, 600)
 	rate := time.Tick(time.Second)
-	for i := 0; i < 300; i++ {
+	for i := 0; i < 600; i++ {
 		bucket <- nil
 	}
 	for {
 		<-rate
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 10; i++ {
 			select {
 			case bucket <- nil:
 			default:
