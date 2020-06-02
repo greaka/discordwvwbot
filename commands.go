@@ -266,17 +266,12 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 
 func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 	if len(userID) == 0 {
-		updateUserChannel <- struct {
-			string
-			bool
-		}{string: m.Author.ID, bool: true}
-		sendSuccess(m)
-		return
-	}
-
-	_, allowed := isManagerOfRoles(m, true)
-	if !allowed {
-		return
+		userID = m.Author.ID
+	} else {
+		_, allowed := isManagerOfRoles(m, true)
+		if !allowed {
+			return
+		}
 	}
 
 	member, err := dg.GuildMember(m.GuildID, userID)
