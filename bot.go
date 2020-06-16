@@ -410,7 +410,7 @@ func updateUser(userID struct {
 	processGuild := func(guild string) {
 		member, ok := guildMembers[guild][userID.string]
 		if ok {
-			_ = updateUserDataInGuild(member, data, err == nil)
+			_ = updateUserDataInGuild(member, data, err == nil, userID.bool)
 		}
 	}
 
@@ -480,12 +480,12 @@ func updateUserInGuild(member *discordgo.Member) (err error) {
 		bool
 	}{string: member.User.ID, bool: true})
 
-	err = updateUserDataInGuild(member, data, err == nil)
+	err = updateUserDataInGuild(member, data, err == nil, true)
 	return
 }
 
 // updateUserDataInGuild updates the user on a specific discord server
-func updateUserDataInGuild(member *discordgo.Member, data gw2AccountData, removeWorlds bool) (err error) {
+func updateUserDataInGuild(member *discordgo.Member, data gw2AccountData, removeWorlds bool, renameUser bool) (err error) {
 	options, err := getGuildSettings(member.GuildID)
 	if err != nil {
 		return
@@ -513,7 +513,7 @@ func updateUserDataInGuild(member *discordgo.Member, data gw2AccountData, remove
 		return
 	}
 
-	if options.RenameUsers {
+	if options.RenameUsers && renameUser {
 		_ = dg.GuildMemberNickname(member.GuildID, member.User.ID, data.Name) // nolint: errcheck, gosec
 	}
 
