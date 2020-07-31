@@ -20,6 +20,8 @@ var (
 	guildRolesDatabase *redis.Pool
 	// uniqueUsersDatabase holds connections to the redis server
 	uniqueUsersDatabase *redis.Pool
+	// guildVerifiesDatabase holds connections to the redis server
+	guildVerifiesDatabase *redis.Pool
 )
 
 type redisDatabase int
@@ -33,6 +35,7 @@ const (
 	dbTypeCache
 	dbTypeGuildRoles
 	dbGw2UsersToDiscordUsers
+	dbAdditionalVerifies
 )
 
 func initializeRedisPools() {
@@ -42,6 +45,7 @@ func initializeRedisPools() {
 	cacheDatabase = newPool(dbTypeCache)
 	guildRolesDatabase = newPool(dbTypeGuildRoles)
 	uniqueUsersDatabase = newPool(dbGw2UsersToDiscordUsers)
+	guildVerifiesDatabase = newPool(dbAdditionalVerifies)
 }
 
 // newPool initializes a new pool

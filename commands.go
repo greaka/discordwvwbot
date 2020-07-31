@@ -38,6 +38,9 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if isOwner(m, true) {
 			os.Exit(1)
 		}
+	case strings.HasPrefix(mes, "allow"):
+		server := strings.Trim(mes[5:], " ")
+		commandAddServer(m, server)
 	}
 }
 
@@ -64,6 +67,11 @@ func printHelp(m *discordgo.MessageCreate) {
 
 	> **check** `+"`discordUserId`"+`
 	shows the worlds, account names and wvw ranks of the user. Needs manage roles permission
+
+	> **allow** `+"`serverName`"+`
+	Sets a server as an additional linked server for 24h.
+    You can add as many servers as you want. The time will reset to 24h for all additional servers.
+    Needs manage roles permission
 	`)
 	if err != nil {
 		loglevels.Errorf("Failed to send help message to user %v: %v", m.Author.ID, err)
@@ -286,6 +294,29 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 		sendErrorMes(m, err.Error())
 		return
 	}
+	sendSuccess(m)
+}
+
+func commandAddServer(m *discordgo.MessageCreate, server string) {
+	_, allowed := isManagerOfRoles(m, true)
+	if !allowed {
+		return
+	}
+
+	s := removeSpecial(server)
+
+	world := getWorldByName(s)
+	if world == -1 {
+		sendErrorMes(m, "Could not find a world with the given name.")
+		return
+	}
+
+	err := addAdditionalWorld(m.GuildID, world)
+	if err != nil {
+		sendError(m)
+		return
+	}
+
 	sendSuccess(m)
 }
 

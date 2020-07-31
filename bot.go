@@ -734,11 +734,19 @@ func updateUserToVerifyInGuild(member *discordgo.Member, worlds []int, removeWor
 		}
 	}
 
+	linkedWorlds := currentWorlds[verifyWorld].Linked
+	additionalWorlds, err := getAdditionalWorlds(member.GuildID)
+	if err != nil {
+		removeWorlds = false
+	} else {
+		linkedWorlds = append(linkedWorlds, additionalWorlds...)
+	}
+
 	if indexOfInt(verifyWorld, worlds) != -1 {
 		wantedRoles = append(wantedRoles, verifiedID)
 	} else {
 		if options.AllowLinked {
-			for _, world := range currentWorlds[verifyWorld].Linked {
+			for _, world := range linkedWorlds {
 				if indexOfInt(world, worlds) != -1 {
 					if options.VerifyOnly {
 						wantedRoles = append(wantedRoles, verifiedID)

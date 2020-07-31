@@ -226,7 +226,7 @@ func getGuildRoles(guildID string, guildRoles []*discordgo.Role) (roleStructs []
 		if found {
 			roleStructs = append(roleStructs, roleStruct)
 		} else {
-			removeGuildRole(guildID, roleStruct) // nolint: gosec, errcheck
+			_ = removeGuildRole(guildID, roleStruct) // nolint: gosec, errcheck
 		}
 	}
 
@@ -287,5 +287,38 @@ func addUserKey(user string, key string) (erro error) {
 		string
 		bool
 	}{string: user, bool: true}
+	return
+}
+
+func getAdditionalWorlds(guildID string) (additionalWorlds []int, err error) {
+	redisConn := guildVerifiesDatabase.Get()
+	// get all managed guild roles
+	worldString, err := redis.Values(redisConn.Do("SMEMBERS", guildID))
+	closeConnection(redisConn)
+	if err != nil {
+		loglevels.Errorf("Error getting additional roles from redis: %v\n", err)
+		return
+	}
+
+	err = redis.ScanSlice(worldString, &additionalWorlds)
+	if err != nil {
+		loglevels.Errorf("Error converting api keys to []string: %v\n", err)
+		return
+	}
+
+	return
+}
+
+func addAdditionalWorld(guildID string, world int) (err error) {
+	redisConn := guildVerifiesDatabase.Get()
+	defer closeConnection(redisConn)
+	// get all managed guild roles
+	_, err = redisConn.Do("SADD", guildID, world)
+	if err != nil {
+		loglevels.Errorf("Error adding additional roles to redis: %v\n", err)
+		return
+	}
+
+	_, err = redisConn.Do("EXPIRE", guildID, 60*60*24)
 	return
 }
