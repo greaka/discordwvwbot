@@ -50,3 +50,11 @@ func getWorldByName(s string) int {
 	}
 	return -1
 }
+
+func trimMention(userID string) string {
+	f := func(c rune) bool {
+		return !unicode.IsNumber(c)
+	}
+
+	return strings.TrimFunc(userID, f)
+}

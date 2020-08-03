@@ -49,9 +49,14 @@ func printHelp(m *discordgo.MessageCreate) {
 	> **help**
 	prints this message
 	
-	> **addkey**
+	> **addkey** `+"`API-KEY`"+`
 	adds an api key to the bot. Use it like this:
 	`+"`.wvw addkey XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXXXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX`"+`
+
+	> **verify**
+	re-verifies you on all servers
+
+__Commands requiring  `+"`Manage Roles`"+` permission__
 	
 	> **purge**
 	removes roles from players that were manually verified
@@ -59,19 +64,15 @@ func printHelp(m *discordgo.MessageCreate) {
 	> **purge** linked
 	like purge, but only for linked servers
 
-	> **verify**
-	re-verifies you on all servers
-
 	> **verify** `+"`discordUserId`"+`
-	verifies a user in your discord server. Needs manage roles permission
+	verifies a user in your discord server
 
 	> **check** `+"`discordUserId`"+`
-	shows the worlds, account names and wvw ranks of the user. Needs manage roles permission
+	shows the worlds, account names and wvw ranks of the user
 
 	> **allow** `+"`serverName`"+`
 	Sets a server as an additional linked server for 24h.
     You can add as many servers as you want. The time will reset to 24h for all additional servers.
-    Needs manage roles permission
 	`)
 	if err != nil {
 		loglevels.Errorf("Failed to send help message to user %v: %v", m.Author.ID, err)
@@ -215,6 +216,8 @@ func isOwner(m *discordgo.MessageCreate, sendOnFailure bool) bool {
 }
 
 func printUserWorlds(m *discordgo.MessageCreate, userID string) {
+	userID = trimMention(userID)
+
 	allowed := false
 	if isOwner(m, false) {
 		allowed = true
@@ -281,6 +284,8 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 			return
 		}
 	}
+
+	userID = trimMention(userID)
 
 	member, err := dg.GuildMember(m.GuildID, userID)
 	if err != nil {
