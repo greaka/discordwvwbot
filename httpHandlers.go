@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // redirectToTLS is the handler function for http calls to get redirected to https
@@ -17,7 +18,7 @@ func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
 }
 
-// handleRootRequest serves the mainpage
+// handleRootRequest serves the main page
 func handleRootRequest(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
 	if _, err := fmt.Fprint(w, mainpage); err != nil {
@@ -338,7 +339,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 // nolint: gocyclo
 func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
 	addHeaders(w, r)
-	key := r.FormValue("key")
+	key := strings.Trim(r.FormValue("key"), " \t\n\r")
 
 	state := oauthState{}
 
