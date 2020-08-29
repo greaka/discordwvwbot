@@ -271,18 +271,8 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// delete everything we know about this user
 	case deleteKeys:
-		loglevels.Infof("Delete all data for user %v", user.ID)
-		redisConn := usersDatabase.Get()
-		defer closeConnection(redisConn)
-		_, err = redisConn.Do("DEL", user.ID)
+		err = deleteAllData(user.ID)
 		if err != nil {
-			loglevels.Errorf("Error deleting key from redis: %v\n", err)
-			writeToResponse(w, "Internal error, please try again or contact me.")
-			return
-		}
-		_, err = redisConn.Do("SADD", user.ID, "A")
-		if err != nil {
-			loglevels.Errorf("Error adding temporary key to redis: %v\n", err)
 			writeToResponse(w, "Internal error, please try again or contact me.")
 			return
 		}

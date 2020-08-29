@@ -41,6 +41,8 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case strings.HasPrefix(mes, "allow"):
 		server := strings.Trim(mes[5:], " ")
 		commandAddServer(m, server)
+	case strings.HasPrefix(mes, "deletealldata"):
+		commandDeleteAllData(m)
 	}
 }
 
@@ -55,6 +57,10 @@ func printHelp(m *discordgo.MessageCreate) {
 
 	> **verify**
 	re-verifies you on all servers
+
+	> **deletealldata**
+    Deletes all data associated with your Discord account.
+    The bot will not know about you anymore after using this command.
 
 __Commands requiring  `+"`Manage Roles`"+` permission__
 	
@@ -322,6 +328,15 @@ func commandAddServer(m *discordgo.MessageCreate, server string) {
 		return
 	}
 
+	sendSuccess(m)
+}
+
+func commandDeleteAllData(m *discordgo.MessageCreate) {
+	err := deleteAllData(m.Author.ID)
+	if err != nil {
+		sendError(m)
+		return
+	}
 	sendSuccess(m)
 }
 

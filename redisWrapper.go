@@ -322,3 +322,21 @@ func addAdditionalWorld(guildID string, world int) (err error) {
 	_, err = redisConn.Do("EXPIRE", guildID, 60*60*24)
 	return
 }
+
+func deleteAllData(userID string) (err error) {
+	loglevels.Infof("Delete all data for user %v", userID)
+	redisConn := usersDatabase.Get()
+	defer closeConnection(redisConn)
+	_, err = redisConn.Do("DEL", userID)
+	if err != nil {
+		loglevels.Errorf("Error deleting key from redis: %v\n", err)
+		return
+	}
+	// this is for deleting roles properly and will be removed on the next run
+	_, err = redisConn.Do("SADD", userID, "A")
+	if err != nil {
+		loglevels.Errorf("Error adding temporary key to redis: %v\n", err)
+		return
+	}
+	return
+}
