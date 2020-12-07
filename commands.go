@@ -293,14 +293,14 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 
 	userID = trimMention(userID)
 
-	member, err := dg.GuildMember(m.GuildID, userID)
-	if err != nil {
+	member, ok := getMember(m.GuildID, userID)
+	if !ok {
 		sendError(m)
 		return
 	}
 
 	member.GuildID = m.GuildID
-	err = updateUserInGuild(member)
+	err := updateUserInGuild(member)
 	if err != nil {
 		sendErrorMes(m, err.Error())
 		return
