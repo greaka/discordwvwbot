@@ -424,6 +424,7 @@ func getMember(guildID string, userID string) (member *discordgo.Member, ok bool
 		var err error
 		member, err = dg.GuildMember(guildID, userID)
 		if err == nil {
+			member.GuildID = guildID
 			guildMembers[guildID][userID] = member
 			ok = true
 		}
