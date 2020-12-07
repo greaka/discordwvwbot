@@ -300,6 +300,7 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	for _, element := range m.Members {
 		guildMembers[m.ID][element.User.ID] = element
 	}
+	_ = s.RequestGuildMembers(m.ID, "", 0, false)
 
 	redisConn := guildsDatabase.Get()
 	// only update when the guild is not already in the database
@@ -408,13 +409,26 @@ func updateUser(userID struct {
 	defer closeConnection(redisConn)
 	data, err := getAccountData(userID)
 	processGuild := func(guild string) {
-		member, ok := guildMembers[guild][userID.string]
+		member, ok := getMember(guild, userID.string)
 		if ok {
 			_ = updateUserDataInGuild(member, data, err == nil, userID.bool)
 		}
 	}
 
 	iterateDatabase(redisConn, processGuild)
+}
+
+func getMember(guildID string, userID string) (member *discordgo.Member, ok bool) {
+	member, ok = guildMembers[guildID][userID]
+	if !ok {
+		var err error
+		member, err = dg.GuildMember(guildID, userID)
+		if err == nil {
+			guildMembers[guildID][userID] = member
+			ok = true
+		}
+	}
+	return
 }
 
 // getAccountData gets the gw2 account data for a specific discord user

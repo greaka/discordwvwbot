@@ -230,7 +230,7 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 	}
 	_, manager := isManagerOfRoles(m, false)
 	if manager {
-		_, ok := guildMembers[m.GuildID][userID]
+		_, ok := getMember(m.GuildID, userID)
 		if ok {
 			allowed = true
 		} else {
