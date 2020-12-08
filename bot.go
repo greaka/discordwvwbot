@@ -307,7 +307,10 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	for _, element := range m.Members {
 		guildMembers[m.ID][element.User.ID] = element
 	}
-	_ = s.RequestGuildMembers(m.ID, "", 0, false)
+	erro := s.RequestGuildMembers(m.ID, "", 0, false)
+	if erro != nil {
+		loglevels.Errorf("Error requesting members for guild %v: %v", m.ID, erro)
+	}
 
 	redisConn := guildsDatabase.Get()
 	// only update when the guild is not already in the database
@@ -427,7 +430,7 @@ func updateUser(userID struct {
 
 func getMember(guildID string, userID string) (member *discordgo.Member, ok bool) {
 	member, ok = guildMembers[guildID][userID]
-/*	if !ok {
+	/*	if !ok {
 		var err error
 		member, err = dg.GuildMember(guildID, userID)
 		if err == nil {
