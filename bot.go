@@ -283,6 +283,12 @@ func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	updateUserInGuild(m.Member)
 }
 
+func guildMembersChunk(s *discordgo.Session, m *discordgo.GuildMembersChunk) {
+	for _, member := range m.Members {
+		guildMembers[m.GuildID][member.User.ID] = member
+	}
+}
+
 // guildMemberRemove listens to users leaving a discord server
 func guildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	delete(guildMembers[m.GuildID], m.User.ID)
@@ -420,7 +426,7 @@ func updateUser(userID struct {
 
 func getMember(guildID string, userID string) (member *discordgo.Member, ok bool) {
 	member, ok = guildMembers[guildID][userID]
-	if !ok {
+/*	if !ok {
 		var err error
 		member, err = dg.GuildMember(guildID, userID)
 		if err == nil {
@@ -428,7 +434,7 @@ func getMember(guildID string, userID string) (member *discordgo.Member, ok bool
 			guildMembers[guildID][userID] = member
 			ok = true
 		}
-	}
+	}*/
 	return
 }
 
