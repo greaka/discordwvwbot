@@ -68,6 +68,7 @@ func startBot() {
 	dg.AddHandler(messageReceive)
 	dg.AddHandler(guildMemberRemove)
 	dg.AddHandler(guildMemberUpdate)
+	dg.AddHandler(guildMembersChunk)
 
 	// open the connection to listen for events
 	err = dg.Open()
