@@ -132,12 +132,19 @@ func purgeGuild(m *discordgo.MessageCreate, relink string) {
 		}
 	}
 
+	guild, err := dg.State.Guild(m.GuildID)
+	if err != nil {
+		loglevels.Errorf("Error finding guild %v in state for purge command", m.GuildID)
+		sendError(m)
+		return
+	}
+
 	tempMap := make(map[string]*discordgo.Member)
-	for k, v := range guildMembers[m.GuildID] {
+	for _, v := range guild.Members {
 		for _, role := range authRoles {
 			for _, memberRole := range v.Roles {
 				if memberRole == role.ID {
-					tempMap[k] = v
+					tempMap[v.User.ID] = v
 					break
 				}
 			}
@@ -230,8 +237,8 @@ func printUserWorlds(m *discordgo.MessageCreate, userID string) {
 	}
 	_, manager := isManagerOfRoles(m, false)
 	if manager {
-		_, ok := getMember(m.GuildID, userID)
-		if ok {
+		_, err := dg.State.Member(m.GuildID, userID)
+		if err == nil {
 			allowed = true
 		} else {
 			_, _ = dg.ChannelMessageSend(m.ChannelID, "<@"+userID+"> is not a user in your discord server.")
@@ -293,14 +300,14 @@ func commandVerifyUser(m *discordgo.MessageCreate, userID string) {
 
 	userID = trimMention(userID)
 
-	member, ok := getMember(m.GuildID, userID)
-	if !ok {
+	member, err := dg.State.Member(m.GuildID, userID)
+	if err != nil {
 		sendError(m)
 		return
 	}
 
 	member.GuildID = m.GuildID
-	err := updateUserInGuild(member)
+	err = updateUserInGuild(member)
 	if err != nil {
 		sendErrorMes(m, err.Error())
 		return

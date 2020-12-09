@@ -33,10 +33,6 @@ var (
 	// userCount holds the current userCount. is uninitialized before first full update cycle
 	userCount int
 
-	// guildMembers caches the guild members of all active discord servers
-	// guildMembers[guildID][userID]
-	guildMembers map[string]map[string]*discordgo.Member
-
 	listenKind bool
 )
 
@@ -47,7 +43,7 @@ const (
 	600 / 3 = 200 users per minute
 	60/200 = 0.3s per user
 	*/
-	delayBetweenUsers time.Duration = 300 * time.Millisecond
+	delayBetweenUsers = 300 * time.Millisecond
 )
 
 // starting up the bot part
@@ -56,19 +52,19 @@ func startBot() {
 		string
 		bool
 	}, 1000)
-	guildMembers = make(map[string]map[string]*discordgo.Member)
 	go fillBucket()
 
 	var err error
 
+	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMembers |
+		discordgo.IntentsGuildMessages |
+		discordgo.IntentsDirectMessages)
+
 	// add event listener
 	dg.AddHandler(guildCreate)
-	dg.AddHandler(guildDelete)
 	dg.AddHandler(guildMemberAdd)
 	dg.AddHandler(messageReceive)
-	dg.AddHandler(guildMemberRemove)
-	dg.AddHandler(guildMemberUpdate)
-	dg.AddHandler(guildMembersChunk)
 
 	// open the connection to listen for events
 	err = dg.Open()
@@ -279,34 +275,13 @@ func updateAllUsers() {
 }
 
 // guildMemberAdd listens to new users joining a discord server
-func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	guildMembers[m.GuildID][m.User.ID] = m.Member
-	updateUserInGuild(m.Member)
-}
-
-func guildMembersChunk(s *discordgo.Session, m *discordgo.GuildMembersChunk) {
-	for _, member := range m.Members {
-		guildMembers[m.GuildID][member.User.ID] = member
-	}
-}
-
-// guildMemberRemove listens to users leaving a discord server
-func guildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-	delete(guildMembers[m.GuildID], m.User.ID)
-}
-
-// guildMemberUpdate listens to users getting updated in a discord server
-func guildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
-	guildMembers[m.GuildID][m.User.ID] = m.Member
+func guildMemberAdd(_ *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	_ = updateUserInGuild(m.Member)
 }
 
 // guildCreate listens to the bot getting added to discord servers
 // upon connecting to discord or after restoring the connection, the bot will receive this event for every server it is currently added to
 func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
-	guildMembers[m.ID] = make(map[string]*discordgo.Member)
-	for _, element := range m.Members {
-		guildMembers[m.ID][element.User.ID] = element
-	}
 	erro := s.RequestGuildMembers(m.ID, "", 0, false)
 	if erro != nil {
 		loglevels.Errorf("Error requesting members for guild %v: %v", m.ID, erro)
@@ -330,20 +305,6 @@ func guildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
 	} else {
 		closeConnection(redisConn)
 	}
-}
-
-// guildDelete listens to the kick or ban event when the bot gets removed
-func guildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
-	delete(guildMembers, m.ID)
-
-	// disabled upon user requests
-	// loglevels.Infof("deleting guild: %v\n", m.ID)
-	// redisConn := guildsDatabase.Get()
-	// _, err := redisConn.Do("DEL", m.ID)
-	// closeConnection(redisConn)
-	// if err != nil {
-	// 	loglevels.Errorf("Error removing guild %v from redis guilds: %v\n", m.ID, err)
-	// }
 }
 
 // updateCurrentWorlds updates the current world list
@@ -419,27 +380,13 @@ func updateUser(userID struct {
 	defer closeConnection(redisConn)
 	data, err := getAccountData(userID)
 	processGuild := func(guild string) {
-		member, ok := getMember(guild, userID.string)
-		if ok {
+		member, erro := dg.State.Member(guild, userID.string)
+		if erro == nil {
 			_ = updateUserDataInGuild(member, data, err == nil, userID.bool)
 		}
 	}
 
 	iterateDatabase(redisConn, processGuild)
-}
-
-func getMember(guildID string, userID string) (member *discordgo.Member, ok bool) {
-	member, ok = guildMembers[guildID][userID]
-	/*	if !ok {
-		var err error
-		member, err = dg.GuildMember(guildID, userID)
-		if err == nil {
-			member.GuildID = guildID
-			guildMembers[guildID][userID] = member
-			ok = true
-		}
-	}*/
-	return
 }
 
 // getAccountData gets the gw2 account data for a specific discord user
