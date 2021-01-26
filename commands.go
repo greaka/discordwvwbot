@@ -43,6 +43,11 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		commandAddServer(m, server)
 	case strings.HasPrefix(mes, "deletealldata"):
 		commandDeleteAllData(m)
+	case strings.HasPrefix(mes, "leave"):
+		server := strings.Trim(mes[5:], " ")
+		if isOwner(m, true) {
+			dg.GuildLeave(server)
+		}
 	}
 }
 
