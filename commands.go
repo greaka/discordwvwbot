@@ -46,7 +46,10 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case strings.HasPrefix(mes, "leave"):
 		server := strings.Trim(mes[5:], " ")
 		if isOwner(m, true) {
-			dg.GuildLeave(server)
+			err := dg.GuildLeave(server)
+			if err != nil {
+				sendErrorMes(m, err.Error())
+			}
 		}
 	}
 }
