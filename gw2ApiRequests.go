@@ -52,6 +52,7 @@ func getCheckedGw2Account(key string, userID struct {
 			if erro != nil {
 				loglevels.Errorf("Error deleting api key from redis: %v", erro)
 			}
+			return
 		}
 		loglevels.Warningf("Error getting account info: %v\n", erro)
 		// unexpected error, don't revoke discord roles because of a server error
