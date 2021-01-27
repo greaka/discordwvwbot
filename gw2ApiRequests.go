@@ -94,7 +94,7 @@ func cacheGw2Request(endpoint, token, cache string, seconds int, result interfac
 
 	err = gw2Request(endpoint, &result)
 	if err != nil {
-		loglevels.Warningf("Error getting %v: %v\n", endpoint, err)
+		loglevels.Warningf("Error getting %v: %v\n", endpoint[:22], err)
 		return
 	}
 
