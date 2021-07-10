@@ -138,14 +138,6 @@ func main() {
 	}
 	dbTemplate, err = template.New("dashboard").Parse(string(htmlFile))
 
-	// starting http->https redirect
-	go func() {
-		loglevels.Info("starting up http redirect...")
-		if err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS)); err != nil {
-			loglevels.Warningf("Error on http redirect, ListenAndServeError: %v\n", err)
-		}
-	}()
-
 	// setting up https server
 	mux := http.NewServeMux()
 
@@ -165,7 +157,7 @@ func main() {
 		},
 	}
 	srv := &http.Server{
-		Addr:         ":443",
+		Addr:         ":4040",
 		Handler:      mux,
 		TLSConfig:    cfg,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
