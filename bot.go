@@ -357,13 +357,15 @@ func updateCurrentWorlds() {
 
 	loglevels.Info("Current Links:")
 	var worldList [2]string
+	i := 0
 	// don't judge me
-	for i, world := range currentWorlds {
+	for _, world := range currentWorlds {
 		if i < 30 {
 			worldList[0] += "\n" + fmt.Sprintf("%v", world)
 		} else {
 			worldList[1] += "\n" + fmt.Sprintf("%v", world)
 		}
+		i++
 	}
 	loglevels.Infof("%v", worldList[0])
 	loglevels.Infof("%v", worldList[1])
