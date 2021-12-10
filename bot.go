@@ -334,6 +334,9 @@ func updateCurrentWorlds() {
 
 		inconsistent := false
 		for _, world := range worlds {
+			if world.ID > 10000 {
+				continue
+			}
 			if _, ok := currentWorlds[world.ID]; !ok {
 				loglevels.Warningf("World %v not found in match data, trying again...", world.ID)
 				inconsistent = true
@@ -362,6 +365,9 @@ func updateCurrentWorlds() {
 
 func processMatchColor(worlds []int) {
 	for _, world := range worlds {
+		if world > 10000 {
+			continue
+		}
 		if _, ok := currentWorlds[world]; !ok {
 			currentWorlds[world] = &linkInfo{
 				ID:     world,
