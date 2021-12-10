@@ -356,11 +356,17 @@ func updateCurrentWorlds() {
 	loglevels.Info("Finished updating worlds")
 
 	loglevels.Info("Current Links:")
-	worldList := ""
-	for _, world := range currentWorlds {
-		worldList += "\n" + fmt.Sprintf("%v", world)
+	var worldList [2]string
+	// don't judge me
+	for i, world := range currentWorlds {
+		if i < 30 {
+			worldList[0] += "\n" + fmt.Sprintf("%v", world)
+		} else {
+			worldList[1] += "\n" + fmt.Sprintf("%v", world)
+		}
 	}
-	loglevels.Infof("%v", worldList)
+	loglevels.Infof("%v", worldList[0])
+	loglevels.Infof("%v", worldList[1])
 }
 
 func processMatchColor(worlds []int) {
